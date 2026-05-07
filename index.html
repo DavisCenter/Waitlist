@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Waitlist</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234a6fa5'/><circle cx='18' cy='20' r='3.5' fill='%23fff'/><rect x='26' y='17' width='24' height='6' rx='3' fill='%23fff'/><circle cx='18' cy='32' r='3.5' fill='%23fff'/><rect x='26' y='29' width='24' height='6' rx='3' fill='%23fff'/><circle cx='18' cy='44' r='3.5' fill='%23fff'/><rect x='26' y='41' width='24' height='6' rx='3' fill='%23fff'/></svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234a6fa5'/><circle cx='32' cy='32' r='19' fill='%23fff'/><circle cx='32' cy='17' r='1.6' fill='%234a6fa5'/><line x1='32' y1='32' x2='32' y2='20' stroke='%234a6fa5' stroke-width='2.5' stroke-linecap='round'/><line x1='32' y1='32' x2='39.5' y2='27.5' stroke='%234a6fa5' stroke-width='3' stroke-linecap='round'/><circle cx='32' cy='32' r='2.4' fill='%234a6fa5'/></svg>">
 <style>
   :root {
     --bg: #faf8f4;
@@ -510,6 +510,62 @@
     font-weight: 400;
   }
 
+  /* === Page navigation === */
+  .page-nav {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-left: auto;
+    margin-right: 16px;
+  }
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.12s;
+    border: 1px solid transparent;
+  }
+  .nav-link:hover {
+    color: var(--text);
+    background: var(--surface-soft);
+  }
+  .nav-link.is-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: rgba(74,111,165,0.18);
+    font-weight: 600;
+  }
+  .nav-badge {
+    display: inline-block;
+    background: var(--warn);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 9px;
+    line-height: 14px;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  button.primary-soft {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: rgba(74,111,165,0.18);
+    font-weight: 600;
+  }
+  button.primary-soft:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
   /* === Storage warning banner === */
   .storage-warning {
     display: none;
@@ -561,9 +617,16 @@
 <header>
   <div class="header-content">
     <div>
-      <h1>Waitlist</h1>
-      <div class="subtitle">Manage prospective enrollment by classroom</div>
+      <h1 id="page-title">Waitlist</h1>
+      <div class="subtitle" id="page-subtitle">Manage prospective enrollment by classroom</div>
     </div>
+    <nav class="page-nav" aria-label="Page navigation">
+      <a href="#/" class="nav-link" data-route="main">Waitlist</a>
+      <a href="#/offered" class="nav-link" data-route="offered">
+        Offered Spots
+        <span class="nav-badge" id="offered-count" style="display:none">0</span>
+      </a>
+    </nav>
     <div class="header-actions">
       <button id="export-csv-btn">Export CSV</button>
       <button id="add-entry-btn" class="primary">+ Add to Waitlist</button>
@@ -577,7 +640,20 @@
 </div>
 
 <main>
-  <div id="classroom-sections"></div>
+  <div id="main-view">
+    <div id="classroom-sections"></div>
+  </div>
+  <div id="offered-view" style="display:none">
+    <section class="classroom-section" style="border-left-color:var(--accent)">
+      <div class="classroom-header">
+        <div class="classroom-title">
+          <span class="classroom-name">Spots Offered</span>
+          <span class="classroom-age-range">Awaiting family response · oldest offer first</span>
+        </div>
+      </div>
+      <div id="offered-list" class="entries"></div>
+    </section>
+  </div>
 </main>
 
 <dialog id="entry-modal">
@@ -1013,6 +1089,43 @@ function markContactedToday(id) {
   render();
 }
 
+function markOffered(id) {
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  entries[idx].status = 'offered';
+  entries[idx].offeredDate = todayIso();
+  saveEntries();
+  render();
+}
+
+function markPlaced(id) {
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  entries[idx].status = 'placed';
+  saveEntries();
+  render();
+}
+
+function sendBackToWaitlist(id) {
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  entries[idx].status = 'active';
+  entries[idx].offeredDate = null;
+  saveEntries();
+  render();
+}
+
+/* === Routing (hash-based) === */
+function getRoute() {
+  const h = (window.location.hash || '').toLowerCase();
+  if (h === '#/offered' || h === '#offered') return 'offered';
+  return 'main';
+}
+function navigate(route) {
+  window.location.hash = route === 'offered' ? '#/offered' : '#/';
+}
+
+
 function normalizeEntry(e) {
   const dob = e.childBirthday || '';
   const isASAP = !!e.isASAP;
@@ -1033,7 +1146,12 @@ function normalizeEntry(e) {
     preferredStartDate,
     lastContacted: e.lastContacted || null,
     notes: (e.notes || '').trim(),
-    dateAdded: e.dateAdded || new Date().toISOString()
+    dateAdded: e.dateAdded || new Date().toISOString(),
+    // Status field: 'active' (on waitlist), 'offered' (spot offered, awaiting response),
+    // 'placed' (accepted, archived), 'declined' (declined, archived).
+    // Older entries default to 'active' so existing data is unaffected.
+    status: e.status || 'active',
+    offeredDate: e.offeredDate || null
   };
 }
 
@@ -1102,10 +1220,34 @@ function escapeHtml(s) {
 }
 
 function render() {
+  // Update the offered count badge in the header on every render so it stays current.
+  updateOfferedBadge();
+  // Dispatch by hash route.
+  if (getRoute() === 'offered') {
+    renderOfferedPage();
+    return;
+  }
+  renderMainPage();
+}
+
+function updateOfferedBadge() {
+  const offeredCount = entries.filter(e => e.status === 'offered').length;
+  const badge = document.getElementById('offered-count');
+  if (!badge) return;
+  badge.textContent = offeredCount;
+  badge.style.display = offeredCount > 0 ? 'inline-block' : 'none';
+}
+
+function renderMainPage() {
+  document.getElementById('main-view').style.display = '';
+  document.getElementById('offered-view').style.display = 'none';
+
+  // Only show entries currently on the active waitlist (status === 'active').
+  const activeEntries = entries.filter(e => e.status === 'active');
   const container = document.getElementById('classroom-sections');
   container.innerHTML = '';
 
-  if (entries.length === 0) {
+  if (activeEntries.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'page-empty';
     empty.innerHTML = `
@@ -1118,7 +1260,7 @@ function render() {
   }
 
   for (const classroom of CLASSROOMS) {
-    const sectionEntries = entries.filter(e => getClassroomForEntry(e) === classroom.id);
+    const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e) === classroom.id);
     const config = getSortConfig(classroom.id);
     const sorted = sortEntries(sectionEntries, config);
     // The visual "active" state mirrors the checkbox check directly so clicking always gives
@@ -1185,6 +1327,9 @@ function render() {
       if (action === 'edit') openEditModal(id);
       else if (action === 'delete') confirmDelete(id);
       else if (action === 'contacted') markContactedToday(id);
+      else if (action === 'offered') markOffered(id);
+      else if (action === 'placed') confirmMarkPlaced(id);
+      else if (action === 'send-back') sendBackToWaitlist(id);
     });
   });
 }
@@ -1242,11 +1387,125 @@ function renderEntry(entry) {
       </div>
 
       <div class="entry-actions">
+        <button class="primary-soft" data-action="offered" data-id="${entry.id}" title="Offer this family a spot — moves them to the Offered page">Offered Spot</button>
         <button data-action="edit" data-id="${entry.id}">Edit</button>
         <button class="danger" data-action="delete" data-id="${entry.id}">Delete</button>
       </div>
     </div>
   `;
+}
+
+function renderOfferedPage() {
+  document.getElementById('main-view').style.display = 'none';
+  document.getElementById('offered-view').style.display = '';
+
+  const offeredEntries = entries.filter(e => e.status === 'offered');
+  // Sort: oldest offer first (most urgent to follow up on)
+  offeredEntries.sort((a, b) => (a.offeredDate || '').localeCompare(b.offeredDate || ''));
+
+  const container = document.getElementById('offered-list');
+  container.innerHTML = '';
+
+  if (offeredEntries.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 48px 24px; font-size: 14px;">
+        No spots have been offered yet.
+        <div style="margin-top:8px; font-size:13px; color:var(--text-faint);">
+          From the main waitlist, click <strong>Offered Spot</strong> on a family's card to track follow-up here.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  offeredEntries.forEach(entry => {
+    const card = document.createElement('div');
+    card.innerHTML = renderOfferedEntry(entry).trim();
+    container.appendChild(card.firstChild);
+  });
+
+  // Wire up actions
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    const { action, id } = btn.dataset;
+    btn.addEventListener('click', () => {
+      if (action === 'edit') openEditModal(id);
+      else if (action === 'delete') confirmDelete(id);
+      else if (action === 'placed') confirmMarkPlaced(id);
+      else if (action === 'send-back') sendBackToWaitlist(id);
+      else if (action === 'contacted') markContactedToday(id);
+    });
+  });
+}
+
+function renderOfferedEntry(entry) {
+  const currentAge = getCurrentAgeMonths(entry.childBirthday);
+  const classroom = CLASSROOMS.find(c => c.id === getClassroomForEntry(entry));
+  const days = entry.offeredDate ? daysSince(entry.offeredDate) : null;
+  let offeredCls = 'contacted-fresh';
+  let offeredText = '—';
+  if (entry.offeredDate) {
+    if (days === 0) offeredText = 'Today';
+    else if (days === 1) offeredText = 'Yesterday';
+    else offeredText = `${days}d ago`;
+    if (days > 7) offeredCls = 'contacted-stale';
+  }
+  const offeredDateLabel = entry.offeredDate ? formatDate(entry.offeredDate) : '';
+  const contacted = formatLastContacted(entry.lastContacted);
+
+  const emailMeta = entry.email
+    ? `${escapeHtml(entry.email)}`
+    : '<span style="color:var(--text-faint)">no email</span>';
+
+  const notesIcon = entry.notes
+    ? `<span class="notes-icon" title="${escapeHtml(entry.notes)}">✎</span>`
+    : '';
+
+  const rowTitleParts = [
+    `Offered ${offeredDateLabel}`,
+    `Added ${formatDateTime(entry.dateAdded)}`,
+    entry.notes ? `Notes: ${entry.notes}` : ''
+  ].filter(Boolean);
+
+  return `
+    <div class="entry" title="${escapeHtml(rowTitleParts.join(' · '))}">
+      <div class="entry-col">
+        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
+        <div class="entry-meta">${classroom ? escapeHtml(classroom.name) : ''} · ${escapeHtml(formatAge(currentAge))}</div>
+      </div>
+
+      <div class="entry-col">
+        <div class="entry-primary">${escapeHtml(entry.parentName)}</div>
+        <div class="entry-meta">${escapeHtml(entry.phone)} · ${emailMeta}</div>
+      </div>
+
+      <div class="entry-col">
+        <div class="entry-field-label" style="font-size:10px;text-transform:uppercase;color:var(--text-faint);letter-spacing:0.07em;font-weight:600;margin-bottom:1px;">Offered</div>
+        <div class="entry-primary ${offeredCls}">${escapeHtml(offeredText)}</div>
+        <div class="entry-meta">${escapeHtml(offeredDateLabel)}</div>
+      </div>
+
+      <div class="entry-col">
+        <div class="entry-field-label" style="font-size:10px;text-transform:uppercase;color:var(--text-faint);letter-spacing:0.07em;font-weight:600;margin-bottom:1px;">Last contacted</div>
+        <div class="entry-primary ${contacted.cls}">${escapeHtml(contacted.text)}</div>
+        <button class="mark-contacted" data-action="contacted" data-id="${entry.id}">Mark contacted</button>
+      </div>
+
+      <div class="entry-actions">
+        <button class="primary" data-action="placed" data-id="${entry.id}" title="They accepted the spot — archive">Accepted</button>
+        <button data-action="send-back" data-id="${entry.id}" title="Move back to active waitlist">Back to Waitlist</button>
+        <button data-action="edit" data-id="${entry.id}">Edit</button>
+        <button class="danger" data-action="delete" data-id="${entry.id}">Delete</button>
+      </div>
+    </div>
+  `;
+}
+
+function confirmMarkPlaced(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  if (confirm(`Mark ${entry.childName} as accepted/placed? They'll be removed from both views (kept in records).`)) {
+    markPlaced(id);
+  }
 }
 
 /* === Modal === */
@@ -1447,9 +1706,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warning) warning.style.display = 'block';
   }
 
+  // Hash route changes — re-render and update active nav link styling
+  window.addEventListener('hashchange', () => {
+    updateNavActive();
+    render();
+  });
+
   seedIfNeeded();
+  updateNavActive();
   render();
 });
+
+function updateNavActive() {
+  const route = getRoute();
+  document.querySelectorAll('.nav-link').forEach(a => {
+    a.classList.toggle('is-active', a.dataset.route === route);
+  });
+  // Update page title/subtitle
+  const title = document.getElementById('page-title');
+  const subtitle = document.getElementById('page-subtitle');
+  if (route === 'offered') {
+    title.textContent = 'Spots Offered';
+    subtitle.textContent = 'Track families with offered spots awaiting response';
+  } else {
+    title.textContent = 'Waitlist';
+    subtitle.textContent = 'Manage prospective enrollment by classroom';
+  }
+}
 
 // Public API for future website-form integration
 window.WaitlistAPI = {
