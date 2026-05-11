@@ -566,6 +566,57 @@
     border-color: var(--accent);
   }
 
+  /* === Time travel bar (plan-ahead view) === */
+  .time-travel-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    padding: 10px 18px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.15s;
+  }
+  .time-travel-bar.is-future,
+  .time-travel-bar.is-past {
+    background: #fff8e8;
+    border-color: #f5d9a8;
+  }
+  .time-travel-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .time-travel-content label[for="view-date"] {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin: 0;
+  }
+  #view-date {
+    width: auto;
+    min-width: 160px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .time-travel-today {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .time-travel-note {
+    font-size: 12px;
+    color: var(--warn);
+    font-weight: 500;
+  }
+  .time-travel-bar:not(.is-future):not(.is-past) .time-travel-note {
+    color: var(--text-faint);
+    font-style: italic;
+    font-weight: 400;
+  }
+
   /* === Storage warning banner === */
   .storage-warning {
     display: none;
@@ -641,6 +692,14 @@
 
 <main>
   <div id="main-view">
+    <div class="time-travel-bar" id="time-travel-bar">
+      <div class="time-travel-content">
+        <label for="view-date">View as of</label>
+        <input type="date" id="view-date">
+        <button class="time-travel-today" id="time-travel-today" type="button">Today</button>
+        <span class="time-travel-note" id="time-travel-note"></span>
+      </div>
+    </div>
     <div id="classroom-sections"></div>
   </div>
   <div id="offered-view" style="display:none">
@@ -815,18 +874,19 @@ function getClassroomForAge(ageMonths) {
 }
 
 // Live classroom for an entry — based on child's age at preferred start date.
-// Falls back to current age for ASAP entries, entries with no start date, and
+// Falls back to "as-of" age for ASAP entries, entries with no start date, and
 // entries whose start date has already passed (treated as effectively starting now).
-// Recomputed every render so kids migrate classrooms as their start date approaches
-// or as they age past it.
-function getClassroomForEntry(entry) {
-  const today = todayIso();
+// Pass `asOf` to plan ahead: with asOf = "2026-08-01", a kid with start = 2026-09-01
+// is still grouped by age at start; a kid with start = 2026-06-01 (past) is grouped by
+// age on Aug 1; a kid starting ASAP is grouped by age on Aug 1.
+function getClassroomForEntry(entry, asOf) {
+  const ref = asOf || todayIso();
   const usesCurrentAge =
     entry.isASAP ||
     !entry.preferredStartDate ||
-    entry.preferredStartDate <= today;
+    entry.preferredStartDate <= ref;
   const ageMonths = usesCurrentAge
-    ? diffMonths(entry.childBirthday, today)
+    ? diffMonths(entry.childBirthday, ref)
     : diffMonths(entry.childBirthday, entry.preferredStartDate);
   return getClassroomForAge(ageMonths);
 }
@@ -967,6 +1027,10 @@ function seedIfNeeded() {
 let entries = loadEntries();
 let sortState = loadSortState();
 let editingId = null;
+// Time-travel "view as of" date. Default = today. Not persisted — refreshing
+// returns to today's date. Affects classroom grouping and age display on the
+// main waitlist (offered view always uses today).
+let viewDate = null; // set after todayIso is callable, in init()
 
 /* === Storage === */
 function loadEntries() {
@@ -1016,12 +1080,14 @@ function formatAge(totalMonths) {
   return `${yearStr} ${monthStr}`;
 }
 
-function getCurrentAgeMonths(birthday) {
-  return diffMonths(birthday, todayIso());
+// All age calculations honor the optional `asOf` parameter so the "view as of [date]"
+// time-travel feature can reuse them. Defaults to today when unspecified.
+function getCurrentAgeMonths(birthday, asOf) {
+  return diffMonths(birthday, asOf || todayIso());
 }
 
-function getAgeAtStartMonths(entry) {
-  if (entry.isASAP) return getCurrentAgeMonths(entry.childBirthday);
+function getAgeAtStartMonths(entry, asOf) {
+  if (entry.isASAP) return getCurrentAgeMonths(entry.childBirthday, asOf);
   return diffMonths(entry.childBirthday, entry.preferredStartDate);
 }
 
@@ -1241,6 +1307,7 @@ function updateOfferedBadge() {
 function renderMainPage() {
   document.getElementById('main-view').style.display = '';
   document.getElementById('offered-view').style.display = 'none';
+  updateTimeTravelBar();
 
   // Only show entries currently on the active waitlist (status === 'active').
   const activeEntries = entries.filter(e => e.status === 'active');
@@ -1260,7 +1327,7 @@ function renderMainPage() {
   }
 
   for (const classroom of CLASSROOMS) {
-    const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e) === classroom.id);
+    const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
     const config = getSortConfig(classroom.id);
     const sorted = sortEntries(sectionEntries, config);
     // The visual "active" state mirrors the checkbox check directly so clicking always gives
@@ -1335,15 +1402,19 @@ function renderMainPage() {
 }
 
 function renderEntry(entry) {
-  const currentAge = getCurrentAgeMonths(entry.childBirthday);
-  const ageAtStart = getAgeAtStartMonths(entry);
+  // "Current age" honors the viewDate so kids displayed reflect their age on the
+  // viewed date when planning ahead.
+  const currentAge = getCurrentAgeMonths(entry.childBirthday, viewDate);
+  const ageAtStart = getAgeAtStartMonths(entry, viewDate);
+  const isPlanning = viewDate && viewDate !== todayIso();
+  const ageLabel = isPlanning ? `on ${formatDate(viewDate)}` : 'now';
 
   const startLabel = entry.isASAP
     ? `ASAP<span class="asap-badge">NOW</span>`
     : escapeHtml(formatDate(entry.preferredStartDate));
 
   const ageAtStartLabel = entry.isASAP
-    ? `${escapeHtml(formatAge(currentAge))} now`
+    ? `${escapeHtml(formatAge(currentAge))} ${escapeHtml(ageLabel)}`
     : `${escapeHtml(formatAge(ageAtStart))} at start`;
 
   const contacted = formatLastContacted(entry.lastContacted);
@@ -1683,6 +1754,22 @@ function exportCSV() {
 
 /* === Init === */
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize time-travel viewDate to today.
+  viewDate = todayIso();
+  const viewDateInput = document.getElementById('view-date');
+  viewDateInput.value = viewDate;
+  viewDateInput.addEventListener('change', e => {
+    viewDate = e.target.value || todayIso();
+    updateTimeTravelBar();
+    renderMainPage();
+  });
+  document.getElementById('time-travel-today').addEventListener('click', () => {
+    viewDate = todayIso();
+    viewDateInput.value = viewDate;
+    updateTimeTravelBar();
+    renderMainPage();
+  });
+
   // Wire global buttons
   document.getElementById('add-entry-btn').addEventListener('click', openAddModal);
   document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
@@ -1716,6 +1803,28 @@ document.addEventListener('DOMContentLoaded', () => {
   updateNavActive();
   render();
 });
+
+function updateTimeTravelBar() {
+  const bar = document.getElementById('time-travel-bar');
+  const note = document.getElementById('time-travel-note');
+  if (!bar || !note) return;
+  const today = todayIso();
+  bar.classList.remove('is-future', 'is-past');
+  if (!viewDate || viewDate === today) {
+    note.textContent = "Today's view. Pick a future date to see how classrooms shape up.";
+    return;
+  }
+  const days = daysSince(viewDate); // negative if future
+  const absDays = Math.abs(days);
+  const months = Math.round(absDays / 30);
+  const direction = days < 0 ? 'ahead' : 'in the past';
+  bar.classList.add(days < 0 ? 'is-future' : 'is-past');
+  let span;
+  if (absDays < 31) span = `${absDays}d`;
+  else if (absDays < 365) span = `${months}mo`;
+  else span = `${(absDays / 365).toFixed(1)}y`;
+  note.textContent = `Viewing ${span} ${direction} — classrooms reflect ages on ${formatDate(viewDate)}.`;
+}
 
 function updateNavActive() {
   const route = getRoute();
