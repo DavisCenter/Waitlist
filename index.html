@@ -816,6 +816,7 @@ const STORAGE_KEY = 'waitlist_entries_v1';
 const SORT_STATE_KEY = 'waitlist_sort_state_v1';
 const SEED_FLAG_KEY = 'waitlist_seeded_v1';
 const SEED_FLAG_KEY_V2 = 'waitlist_seeded_v2';
+const VIEW_DATE_KEY = 'waitlist_view_date_v1';
 
 // Safe storage wrapper. Falls back to in-memory when localStorage is blocked
 // (e.g., sandboxed iframes without `allow-same-origin`). The page still works
@@ -1027,9 +1028,10 @@ function seedIfNeeded() {
 let entries = loadEntries();
 let sortState = loadSortState();
 let editingId = null;
-// Time-travel "view as of" date. Default = today. Not persisted — refreshing
-// returns to today's date. Affects classroom grouping and age display on the
-// main waitlist (offered view always uses today).
+// Time-travel "view as of" date. Persisted in localStorage so refreshes keep the
+// chosen view. Click the "Today" button (or change the date to today) to reset.
+// Affects classroom grouping and age display on the main waitlist; the offered
+// view always uses today.
 let viewDate = null; // set after todayIso is callable, in init()
 
 /* === Storage === */
@@ -1309,8 +1311,10 @@ function renderMainPage() {
   document.getElementById('offered-view').style.display = 'none';
   updateTimeTravelBar();
 
-  // Only show entries currently on the active waitlist (status === 'active').
-  const activeEntries = entries.filter(e => e.status === 'active');
+  // Only show entries currently on the active waitlist. Missing `status` defaults
+  // to 'active' for backward compatibility with entries seeded before the
+  // offered-spot feature existed.
+  const activeEntries = entries.filter(e => (e.status || 'active') === 'active');
   const container = document.getElementById('classroom-sections');
   container.innerHTML = '';
 
@@ -1754,18 +1758,21 @@ function exportCSV() {
 
 /* === Init === */
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize time-travel viewDate to today.
-  viewDate = todayIso();
+  // Initialize time-travel viewDate from localStorage (falls back to today).
+  // Refreshes preserve the chosen view; "Today" button resets explicitly.
+  viewDate = storage.get(VIEW_DATE_KEY) || todayIso();
   const viewDateInput = document.getElementById('view-date');
   viewDateInput.value = viewDate;
   viewDateInput.addEventListener('change', e => {
     viewDate = e.target.value || todayIso();
+    storage.set(VIEW_DATE_KEY, viewDate);
     updateTimeTravelBar();
     renderMainPage();
   });
   document.getElementById('time-travel-today').addEventListener('click', () => {
     viewDate = todayIso();
     viewDateInput.value = viewDate;
+    storage.set(VIEW_DATE_KEY, viewDate);
     updateTimeTravelBar();
     renderMainPage();
   });
