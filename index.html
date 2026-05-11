@@ -270,12 +270,58 @@
   .entry {
     padding: 8px 18px;
     display: grid;
-    grid-template-columns: 1.6fr 0.9fr 1.8fr 1.4fr auto;
+    grid-template-columns: 0.95fr 1.6fr 1.1fr auto;
     gap: 16px;
     align-items: center;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;
     min-height: 44px;
+  }
+  /* Contact details panel — hidden by default, revealed when row is expanded. */
+  .entry-contact-details {
+    grid-column: 1 / -1;
+    display: none;
+    padding: 10px 12px;
+    margin-top: 6px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .entry.is-expanded .entry-contact-details {
+    display: block;
+  }
+  .entry-contact-details .contact-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+  .entry-contact-details .contact-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .entry-contact-details a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(74,111,165,0.35);
+  }
+  .entry-contact-details a:hover {
+    border-bottom-style: solid;
+  }
+  .entry-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .entry-actions .btn-toggle.is-active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .entry:last-child {
     border-bottom: none;
@@ -1401,6 +1447,7 @@ function renderMainPage() {
       else if (action === 'offered') markOffered(id);
       else if (action === 'placed') confirmMarkPlaced(id);
       else if (action === 'send-back') sendBackToWaitlist(id);
+      else if (action === 'toggle-contact') toggleContact(btn);
     });
   });
 }
@@ -1413,21 +1460,22 @@ function renderEntry(entry) {
   const isPlanning = viewDate && viewDate !== todayIso();
   const ageLabel = isPlanning ? `on ${formatDate(viewDate)}` : 'now';
 
-  const startLabel = entry.isASAP
-    ? `ASAP<span class="asap-badge">NOW</span>`
-    : escapeHtml(formatDate(entry.preferredStartDate));
-
-  const ageAtStartLabel = entry.isASAP
-    ? `${escapeHtml(formatAge(currentAge))} ${escapeHtml(ageLabel)}`
-    : `${escapeHtml(formatAge(ageAtStart))} at start`;
+  // Age-at-start primary, current age underneath. For ASAP entries the two are equal,
+  // so show "ASAP" badge instead of redundant duplicate.
+  const ageAtStartPrimary = `${escapeHtml(formatAge(ageAtStart))}${entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : ''}`;
+  const currentAgeMeta = entry.isASAP
+    ? `<span style="color:var(--text-faint)">starting ${escapeHtml(ageLabel)}</span>`
+    : `${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>`;
 
   const contacted = formatLastContacted(entry.lastContacted);
+  const contactedDisplay = entry.lastContacted
+    ? `Contacted ${contacted.text}`
+    : 'Never contacted';
 
-  // Hover tooltip on the row carries the longer fields (notes, added timestamp, full email)
   const rowTitleParts = [
-    `Added ${formatDateTime(entry.dateAdded)}`,
     entry.email ? `Email: ${entry.email}` : '',
-    entry.notes ? `Notes: ${entry.notes}` : ''
+    entry.notes ? `Notes: ${entry.notes}` : '',
+    entry.preferredStartDate ? `Preferred start: ${formatDate(entry.preferredStartDate)}` : (entry.isASAP ? 'Preferred start: ASAP' : '')
   ].filter(Boolean);
   const rowTitle = rowTitleParts.join(' · ');
 
@@ -1435,42 +1483,44 @@ function renderEntry(entry) {
     ? `<span class="notes-icon" title="${escapeHtml(entry.notes)}">✎</span>`
     : '';
 
-  const emailMeta = entry.email
-    ? `${escapeHtml(entry.email)}`
+  const emailLink = entry.email
+    ? `<a href="mailto:${escapeHtml(entry.email)}">${escapeHtml(entry.email)}</a>`
     : '<span style="color:var(--text-faint)">no email</span>';
-
-  // Display under the name: "Contacted: <freshness>" or "Never contacted"
-  const contactedDisplay = entry.lastContacted
-    ? `Contacted ${contacted.text}`
-    : 'Never contacted';
+  const phoneLink = entry.phone
+    ? `<a href="tel:${escapeHtml(entry.phone.replace(/\s/g,''))}">${escapeHtml(entry.phone)}</a>`
+    : '<span style="color:var(--text-faint)">no phone</span>';
 
   return `
     <div class="entry" title="${escapeHtml(rowTitle)}">
       <div class="entry-col">
-        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
+        <div class="entry-primary">${escapeHtml(formatDate(entry.dateAdded.slice(0,10)))}</div>
         <div class="entry-meta ${contacted.cls}" ${contacted.dateLabel ? `title="${escapeHtml(contacted.dateLabel)}"` : ''}>${escapeHtml(contactedDisplay)}</div>
-        <button class="mark-contacted" data-action="contacted" data-id="${entry.id}">Mark contacted</button>
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${escapeHtml(formatDate(entry.childBirthday))}</div>
-        <div class="entry-meta">${escapeHtml(formatAge(currentAge))}${isPlanning ? ` <span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>` : ''}</div>
+        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
+        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}</div>
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${escapeHtml(entry.parentName)}</div>
-        <div class="entry-meta">${escapeHtml(entry.phone)} · ${emailMeta}</div>
-      </div>
-
-      <div class="entry-col">
-        <div class="entry-primary">${startLabel}</div>
-        <div class="entry-meta">${ageAtStartLabel}</div>
+        <div class="entry-primary">${ageAtStartPrimary}</div>
+        <div class="entry-meta">${currentAgeMeta}</div>
       </div>
 
       <div class="entry-actions">
+        <button class="btn-toggle" data-action="toggle-contact" data-id="${entry.id}" title="Show parent contact info">Contact</button>
+        <button data-action="contacted" data-id="${entry.id}" title="Stamp today as the last contact date">Mark contacted</button>
         <button class="primary-soft" data-action="offered" data-id="${entry.id}" title="Offer this family a spot — moves them to the Offered page">Offered Spot</button>
         <button data-action="edit" data-id="${entry.id}">Edit</button>
         <button class="danger" data-action="delete" data-id="${entry.id}">Delete</button>
+      </div>
+
+      <div class="entry-contact-details">
+        <div class="contact-row">
+          <span><span class="contact-label">Parent</span>${escapeHtml(entry.parentName) || '<span style="color:var(--text-faint)">unknown</span>'}</span>
+          <span><span class="contact-label">Phone</span>${phoneLink}</span>
+          <span><span class="contact-label">Email</span>${emailLink}</span>
+        </div>
       </div>
     </div>
   `;
@@ -1514,6 +1564,7 @@ function renderOfferedPage() {
       else if (action === 'placed') confirmMarkPlaced(id);
       else if (action === 'send-back') sendBackToWaitlist(id);
       else if (action === 'contacted') markContactedToday(id);
+      else if (action === 'toggle-contact') toggleContact(btn);
     });
   });
 }
@@ -1550,39 +1601,58 @@ function renderOfferedEntry(entry) {
   const contactedDisplay = entry.lastContacted
     ? `Contacted ${contacted.text}`
     : 'Never contacted';
+  const ageAtStart = getAgeAtStartMonths(entry);
+  const ageAtStartPrimary = `${escapeHtml(formatAge(ageAtStart))}${entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : ''}`;
+
+  const emailLink = entry.email
+    ? `<a href="mailto:${escapeHtml(entry.email)}">${escapeHtml(entry.email)}</a>`
+    : '<span style="color:var(--text-faint)">no email</span>';
+  const phoneLink = entry.phone
+    ? `<a href="tel:${escapeHtml(entry.phone.replace(/\s/g,''))}">${escapeHtml(entry.phone)}</a>`
+    : '<span style="color:var(--text-faint)">no phone</span>';
 
   return `
     <div class="entry" title="${escapeHtml(rowTitleParts.join(' · '))}">
       <div class="entry-col">
-        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
+        <div class="entry-primary ${offeredCls}">Offered ${escapeHtml(offeredText)}</div>
         <div class="entry-meta ${contacted.cls}">${escapeHtml(contactedDisplay)}</div>
-        <button class="mark-contacted" data-action="contacted" data-id="${entry.id}">Mark contacted</button>
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${escapeHtml(formatDate(entry.childBirthday))}</div>
-        <div class="entry-meta">${escapeHtml(formatAge(currentAge))}${classroom ? ` · ${escapeHtml(classroom.name)}` : ''}</div>
+        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
+        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${classroom ? ` · ${escapeHtml(classroom.name)}` : ''}</div>
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${escapeHtml(entry.parentName)}</div>
-        <div class="entry-meta">${escapeHtml(entry.phone)} · ${emailMeta}</div>
-      </div>
-
-      <div class="entry-col">
-        <div class="entry-field-label" style="font-size:10px;text-transform:uppercase;color:var(--text-faint);letter-spacing:0.07em;font-weight:600;margin-bottom:1px;">Offered</div>
-        <div class="entry-primary ${offeredCls}">${escapeHtml(offeredText)}</div>
-        <div class="entry-meta">${escapeHtml(offeredDateLabel)}</div>
+        <div class="entry-primary">${ageAtStartPrimary}</div>
+        <div class="entry-meta">${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">now</span></div>
       </div>
 
       <div class="entry-actions">
+        <button class="btn-toggle" data-action="toggle-contact" data-id="${entry.id}" title="Show parent contact info">Contact</button>
+        <button data-action="contacted" data-id="${entry.id}" title="Stamp today as the last contact date">Mark contacted</button>
         <button class="primary" data-action="placed" data-id="${entry.id}" title="They accepted the spot — archive">Accepted</button>
         <button data-action="send-back" data-id="${entry.id}" title="Move back to active waitlist">Back to Waitlist</button>
         <button data-action="edit" data-id="${entry.id}">Edit</button>
         <button class="danger" data-action="delete" data-id="${entry.id}">Delete</button>
       </div>
+
+      <div class="entry-contact-details">
+        <div class="contact-row">
+          <span><span class="contact-label">Parent</span>${escapeHtml(entry.parentName) || '<span style="color:var(--text-faint)">unknown</span>'}</span>
+          <span><span class="contact-label">Phone</span>${phoneLink}</span>
+          <span><span class="contact-label">Email</span>${emailLink}</span>
+        </div>
+      </div>
     </div>
   `;
+}
+
+function toggleContact(btn) {
+  const row = btn.closest('.entry');
+  if (!row) return;
+  const expanded = row.classList.toggle('is-expanded');
+  btn.classList.toggle('is-active', expanded);
 }
 
 function confirmMarkPlaced(id) {
