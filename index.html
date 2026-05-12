@@ -267,12 +267,24 @@
     display: flex;
     flex-direction: column;
   }
-  .entry,
-  .entry-headers {
+  /* Shared grid: .entries is the master grid; rows use subgrid so columns
+     line up across the header and all entry rows, regardless of which row
+     has the widest content. */
+  .entries {
     display: grid;
     grid-template-columns: 0.85fr 1.4fr 0.9fr 1fr auto;
+  }
+  .entry,
+  .entry-headers,
+  .empty-state {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
     gap: 16px;
     align-items: center;
+  }
+  .empty-state {
+    display: block; /* override grid for centered text */
   }
   .entry {
     padding: 8px 18px;
@@ -292,6 +304,22 @@
   }
   .entry-headers > div {
     line-height: 1.4;
+  }
+  .entry-headers [data-sort-key] {
+    cursor: pointer;
+    transition: color 0.12s;
+    user-select: none;
+  }
+  .entry-headers [data-sort-key]:hover {
+    color: var(--text);
+  }
+  .entry-headers [data-sort-key].is-active-sort {
+    color: var(--accent);
+  }
+  .entry-headers [data-sort-key].is-active-sort::after {
+    content: ' \25B2'; /* ▲ */
+    font-size: 9px;
+    margin-left: 3px;
   }
   /* Contact details panel — hidden by default, revealed when row is expanded. */
   .entry-contact-details {
@@ -1430,11 +1458,11 @@ function renderMainPage() {
       <div class="entries">
         ${sorted.length === 0
           ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
-          : `<div class="entry-headers">
-              <div>Date Added</div>
+          : `<div class="entry-headers" data-classroom="${classroom.id}">
+              <div data-sort-key="date_added" class="${config.sort === 'date_added' ? 'is-active-sort' : ''}">Date Added</div>
               <div>Child</div>
-              <div>Preferred Start</div>
-              <div>Age</div>
+              <div data-sort-key="preferred_start" class="${config.sort === 'preferred_start' ? 'is-active-sort' : ''}">Preferred Start</div>
+              <div data-sort-key="age_at_start" class="${config.sort === 'age_at_start' ? 'is-active-sort' : ''}">Age</div>
               <div></div>
             </div>` + sorted.map(renderEntry).join('')
         }
@@ -1455,6 +1483,17 @@ function renderMainPage() {
   container.querySelectorAll('[data-tiebreak]').forEach(cb => {
     cb.addEventListener('change', e => {
       setSortConfig(cb.dataset.classroom, { tiebreak: e.target.checked });
+      render();
+    });
+  });
+
+  // Wire up clickable column headers (per classroom)
+  container.querySelectorAll('.entry-headers [data-sort-key]').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const headerRow = cell.closest('.entry-headers');
+      const classroomId = headerRow && headerRow.dataset.classroom;
+      if (!classroomId) return;
+      setSortConfig(classroomId, { sort: cell.dataset.sortKey });
       render();
     });
   });
