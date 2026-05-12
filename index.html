@@ -390,6 +390,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .entry-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.12s;
+  }
+  .entry-name-btn:hover {
+    color: var(--accent);
+    text-decoration: underline;
+    background: none;
+    border-color: transparent;
+  }
+  .entry-name-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
   .entry-meta {
     font-size: 11px;
     color: var(--text-muted);
@@ -889,6 +910,14 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="form-field">
+          <label>Toured on <span class="checkbox-hint">(optional)</span></label>
+          <input type="date" name="touredOn">
+        </div>
+        <div class="form-field"></div>
+      </div>
+
       <div class="form-field">
         <label>Notes <span class="checkbox-hint">(optional)</span></label>
         <textarea name="notes" rows="3"></textarea>
@@ -924,6 +953,7 @@
        isASAP: boolean (optional, default false)
        preferredStartDate: "YYYY-MM-DD" (required if !isASAP)
        lastContacted: "YYYY-MM-DD" (optional)
+       touredOn: "YYYY-MM-DD" (optional) — date the family toured the facility
        notes: string (optional)
      }
    ============================================================= */
@@ -1337,6 +1367,7 @@ function normalizeEntry(e) {
     isASAP,
     preferredStartDate,
     lastContacted: e.lastContacted || null,
+    touredOn: e.touredOn || null,
     notes: (e.notes || '').trim(),
     dateAdded: e.dateAdded || new Date().toISOString(),
     // Status field: 'active' (on waitlist), 'offered' (spot offered, awaiting response),
@@ -1645,8 +1676,8 @@ function renderEntry(entry) {
       </div>
 
       <div class="entry-col">
-        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
-        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}</div>
+        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${notesIcon}</div>
+        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${entry.touredOn ? ` · <span style="color:var(--success);">Toured ${escapeHtml(formatDate(entry.touredOn))}</span>` : ''}</div>
       </div>
 
       <div class="entry-col">
@@ -1662,7 +1693,7 @@ function renderEntry(entry) {
         <button class="btn-toggle" data-action="toggle-contact" data-id="${entry.id}" title="Show parent contact info">Contact</button>
         <button data-action="contacted" data-id="${entry.id}" title="Stamp today as the last contact date">Mark contacted</button>
         <button class="primary-soft" data-action="offered" data-id="${entry.id}" title="Offer this family a spot — moves them to the Offered page">Offered Spot</button>
-        <button data-action="edit" data-id="${entry.id}">Edit</button>
+        <button data-action="edit" data-id="${entry.id}">Details</button>
         <button class="danger" data-action="delete" data-id="${entry.id}">Delete</button>
       </div>
 
@@ -1804,8 +1835,8 @@ function renderOfferedEntry(entry) {
       </div>
 
       <div class="entry-col">
-        <div class="entry-name">${escapeHtml(entry.childName)}${notesIcon}</div>
-        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${classroom ? ` · ${escapeHtml(classroom.name)}` : ''}</div>
+        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${notesIcon}</div>
+        <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${classroom ? ` · ${escapeHtml(classroom.name)}` : ''}${entry.touredOn ? ` · <span style="color:var(--success);">Toured ${escapeHtml(formatDate(entry.touredOn))}</span>` : ''}</div>
       </div>
 
       <div class="entry-col">
@@ -1892,7 +1923,7 @@ function openEditModal(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
   editingId = id;
-  document.getElementById('modal-title').textContent = 'Edit Entry';
+  document.getElementById('modal-title').textContent = entry.childName || 'Edit Entry';
   const form = document.getElementById('entry-form');
   form.elements.childName.value = entry.childName;
   form.elements.childBirthday.value = entry.childBirthday;
@@ -1902,6 +1933,7 @@ function openEditModal(id) {
   form.elements.isASAP.checked = entry.isASAP;
   form.elements.preferredStartDate.value = entry.preferredStartDate || '';
   form.elements.lastContacted.value = entry.lastContacted || '';
+  form.elements.touredOn.value = entry.touredOn || '';
   form.elements.notes.value = entry.notes || '';
   togglePreferredDate();
   updateAutoClassroomHint();
@@ -1935,6 +1967,7 @@ function handleSubmit(e) {
     isASAP: form.elements.isASAP.checked,
     preferredStartDate: form.elements.preferredStartDate.value,
     lastContacted: form.elements.lastContacted.value,
+    touredOn: form.elements.touredOn.value,
     notes: form.elements.notes.value
   };
 
@@ -1981,7 +2014,7 @@ function exportCSV() {
     'Classroom', 'Child Name', 'Birthday', 'Current Age',
     'Parent Name', 'Email', 'Phone',
     'Preferred Start', 'ASAP', 'Age at Start',
-    'Last Contacted', 'Date Added', 'Notes'
+    'Last Contacted', 'Toured On', 'Date Added', 'Notes'
   ];
   const sorted = [...entries].sort((a, b) => {
     const ai = CLASSROOMS.findIndex(c => c.id === getClassroomForEntry(a));
@@ -2003,6 +2036,7 @@ function exportCSV() {
       e.isASAP ? 'Yes' : 'No',
       formatAge(getAgeAtStartMonths(e)),
       e.lastContacted || '',
+      e.touredOn || '',
       e.dateAdded,
       e.notes || ''
     ];
