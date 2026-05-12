@@ -677,6 +677,14 @@
   .nav-tab.is-offered.is-active {
     border-bottom-color: var(--warn);
   }
+  .nav-tab.is-all.is-active {
+    border-bottom-color: var(--accent);
+  }
+  .nav-tab.is-all {
+    border-right: 1px solid var(--border);
+    padding-right: 18px;
+    margin-right: 6px;
+  }
   .nav-count {
     background: rgba(0,0,0,0.06);
     color: var(--text-muted);
@@ -1331,12 +1339,14 @@ function sendBackToWaitlist(id) {
 /* === Routing (hash-based) === */
 // Routes:
 //   #/                       → default to first classroom
+//   #/all                    → all classrooms stacked
 //   #/classroom/{id}         → single classroom page
 //   #/offered                → spots offered
-// Returns { type: 'classroom' | 'offered', classroomId? }
+// Returns { type: 'all' | 'classroom' | 'offered', classroomId? }
 function getRoute() {
   const h = (window.location.hash || '').toLowerCase();
   if (h === '#/offered' || h === '#offered') return { type: 'offered' };
+  if (h === '#/all' || h === '#all') return { type: 'all' };
   const m = h.match(/^#\/classroom\/([a-z_]+)\/?$/);
   if (m && CLASSROOMS.some(c => c.id === m[1])) {
     return { type: 'classroom', classroomId: m[1] };
@@ -1473,6 +1483,10 @@ function render() {
     renderOfferedPage();
     return;
   }
+  if (route.type === 'all') {
+    renderAllPage();
+    return;
+  }
   if (route.type === 'classroom') {
     renderClassroomPage(route.classroomId);
     return;
@@ -1491,15 +1505,25 @@ function renderClassroomNav() {
   });
   const offeredCount = entries.filter(e => e.status === 'offered').length;
 
-  const items = CLASSROOMS.map(c => {
+  const totalActive = Object.values(activeEntriesByClassroom).reduce((s, n) => s + n, 0);
+
+  const items = [];
+  // "All" tab first — shows every classroom stacked.
+  items.push(`
+    <a href="#/all" class="nav-tab is-all ${route.type === 'all' ? 'is-active' : ''}">
+      <span>All</span>
+      ${totalActive > 0 ? `<span class="nav-count">${totalActive}</span>` : ''}
+    </a>
+  `);
+  CLASSROOMS.forEach(c => {
     const count = activeEntriesByClassroom[c.id] || 0;
     const isActive = route.type === 'classroom' && route.classroomId === c.id;
-    return `
+    items.push(`
       <a href="#/classroom/${c.id}" class="nav-tab ${isActive ? 'is-active' : ''}" data-classroom-id="${c.id}">
         <span>${escapeHtml(c.name)}</span>
         ${count > 0 ? `<span class="nav-count">${count}</span>` : ''}
       </a>
-    `;
+    `);
   });
   items.push(`
     <a href="#/offered" class="nav-tab is-offered ${route.type === 'offered' ? 'is-active' : ''}">
@@ -1518,6 +1542,12 @@ function updatePageTitleFor(route) {
     subtitleEl.textContent = 'Track families with offered spots awaiting response';
     return;
   }
+  if (route.type === 'all') {
+    const total = entries.filter(e => (e.status || 'active') === 'active').length;
+    titleEl.textContent = 'All Classrooms';
+    subtitleEl.textContent = `${total} ${total === 1 ? 'child' : 'children'} on the waitlist across all classrooms`;
+    return;
+  }
   const c = CLASSROOMS.find(x => x.id === route.classroomId);
   if (!c) return;
   const count = entries.filter(e =>
@@ -1528,28 +1558,19 @@ function updatePageTitleFor(route) {
   subtitleEl.textContent = `${count} ${count === 1 ? 'child' : 'children'} waiting · ${c.ageRange}`;
 }
 
-function renderClassroomPage(classroomId) {
-  document.getElementById('main-view').style.display = '';
-  document.getElementById('offered-view').style.display = 'none';
-  updateTimeTravelBar();
-
-  const classroom = CLASSROOMS.find(c => c.id === classroomId) || CLASSROOMS[0];
-  const container = document.getElementById('classroom-sections');
-  container.innerHTML = '';
-
+// Builds one classroom <section> and appends it to the container.
+// Shared between renderClassroomPage (single) and renderAllPage (all six stacked).
+function appendClassroomSection(classroom, container) {
   const activeEntries = entries.filter(e => (e.status || 'active') === 'active');
   const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
 
   const config = getSortConfig(classroom.id);
   const sorted = sortEntries(sectionEntries, config);
+  const dateAddedActive = !config.sort || config.sort === 'date_added';
 
   const section = document.createElement('section');
   section.className = 'classroom-section';
   section.dataset.classroom = classroom.id;
-
-  // Date Added column header shows the active indicator when it's the explicit
-  // sort OR when no other primary is selected (since date_added is the default).
-  const dateAddedActive = !config.sort || config.sort === 'date_added';
 
   section.innerHTML = `
     <div class="classroom-header">
@@ -1576,7 +1597,34 @@ function renderClassroomPage(classroomId) {
     </div>
   `;
   container.appendChild(section);
+}
 
+function renderAllPage() {
+  document.getElementById('main-view').style.display = '';
+  document.getElementById('offered-view').style.display = 'none';
+  updateTimeTravelBar();
+
+  const container = document.getElementById('classroom-sections');
+  container.innerHTML = '';
+  CLASSROOMS.forEach(c => appendClassroomSection(c, container));
+  wireSectionEventHandlers(container);
+}
+
+function renderClassroomPage(classroomId) {
+  document.getElementById('main-view').style.display = '';
+  document.getElementById('offered-view').style.display = 'none';
+  updateTimeTravelBar();
+
+  const classroom = CLASSROOMS.find(c => c.id === classroomId) || CLASSROOMS[0];
+  const container = document.getElementById('classroom-sections');
+  container.innerHTML = '';
+  appendClassroomSection(classroom, container);
+  wireSectionEventHandlers(container);
+}
+
+// Wire up column-header clicks and entry actions inside a classroom-sections
+// container. Idempotent — call after rebuilding the container.
+function wireSectionEventHandlers(container) {
   // Wire up clickable column headers (per classroom). Clicking the same column
   // again clears the sort (returns to default = date added).
   container.querySelectorAll('.entry-headers [data-sort-key]').forEach(cell => {
