@@ -197,6 +197,11 @@
     letter-spacing: 0.02em;
   }
 
+  .sort-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-style: italic;
+  }
   .sort-control {
     display: flex;
     align-items: center;
@@ -1003,12 +1008,11 @@ function getClassroomForEntry(entry, asOf) {
   return getClassroomForAge(ageMonths);
 }
 
-const SORT_OPTIONS = [
-  { id: 'date_added',     label: 'Date added' },
-  { id: 'preferred_start',label: 'Preferred start' },
-  { id: 'age_at_start',   label: 'Age at start' },
-  { id: 'last_contacted', label: 'Last contacted' }
-];
+// User-selectable sort keys (via clickable column headers). 'date_added' is
+// intentionally NOT here — it's the always-on secondary sort, applied after the
+// user's selection. When no column is selected, entries fall back to date_added
+// ascending (oldest entry first).
+const SORTABLE_KEYS = new Set(['preferred_start', 'age', 'last_contacted']);
 
 // Imported entries from Waitlist.xlsx (May 2026). Seeded once on first run;
 // flag in localStorage prevents re-seeding on subsequent loads.
@@ -1344,17 +1348,36 @@ function normalizeEntry(e) {
 }
 
 /* === Sort === */
-// sortState entries can be either a string (legacy) or { sort, tiebreak }.
+// Stored shape may be legacy (string) or new ({ sort, tiebreak }). Either way, we
+// normalize: only keep `sort` if it's one of the currently sortable keys.
+// 'date_added' is no longer user-selectable (it's the always-on secondary) so
+// any stored value of 'date_added' is treated as the default (no primary).
 function getSortConfig(classroomId) {
   const v = sortState[classroomId];
-  if (!v) return { sort: 'date_added', tiebreak: false };
-  if (typeof v === 'string') return { sort: v, tiebreak: false };
-  return { sort: v.sort || 'date_added', tiebreak: !!v.tiebreak };
+  let sort = null;
+  if (typeof v === 'string') sort = v;
+  else if (v && typeof v === 'object') sort = v.sort || null;
+  if (!sort || !SORTABLE_KEYS.has(sort)) sort = null;
+  return { sort };
 }
 function setSortConfig(classroomId, partial) {
   const current = getSortConfig(classroomId);
   sortState[classroomId] = { ...current, ...partial };
   saveSortState();
+}
+
+// Returns the age (in months) that should be displayed in the Age column for an
+// entry. When the preferred start has passed (or is ASAP / missing), we show the
+// CURRENT age — the historical age-at-start no longer makes sense. Otherwise
+// (start is in the future), we show age at start.
+function getDisplayedAgeMonths(entry, asOf) {
+  const ref = asOf || todayIso();
+  const startInFuture = entry.preferredStartDate &&
+                        !entry.isASAP &&
+                        entry.preferredStartDate >= ref;
+  return startInFuture
+    ? diffMonths(entry.childBirthday, entry.preferredStartDate)
+    : diffMonths(entry.childBirthday, ref);
 }
 
 function makeComparator(key) {
@@ -1368,10 +1391,11 @@ function makeComparator(key) {
       return ad.localeCompare(bd);
     };
   }
-  if (key === 'age_at_start') {
+  if (key === 'age') {
+    // Sort by displayed age — matches what the user sees in the Age column.
     return (a, b) => {
-      const am = getAgeAtStartMonths(a);
-      const bm = getAgeAtStartMonths(b);
+      const am = getDisplayedAgeMonths(a, viewDate);
+      const bm = getDisplayedAgeMonths(b, viewDate);
       return (am === null ? 99999 : am) - (bm === null ? 99999 : bm);
     };
   }
@@ -1386,16 +1410,19 @@ function makeComparator(key) {
   return () => 0;
 }
 
+// Date-added is ALWAYS the secondary sort. When the user picks a primary, ties
+// on that primary are broken by date added (oldest first → newest last). When
+// no primary is selected, entries sort by date added only.
 function sortEntries(items, config) {
+  const dateAddedCmp = makeComparator('date_added');
+  if (!config.sort) {
+    return [...items].sort(dateAddedCmp);
+  }
   const primary = makeComparator(config.sort);
-  const secondary = (config.tiebreak && config.sort !== 'date_added')
-    ? makeComparator('date_added')
-    : null;
   return [...items].sort((a, b) => {
     const r = primary(a, b);
     if (r !== 0) return r;
-    if (secondary) return secondary(a, b);
-    return 0;
+    return dateAddedCmp(a, b);
   });
 }
 
@@ -1484,11 +1511,14 @@ function renderClassroomPage(classroomId) {
 
   const config = getSortConfig(classroom.id);
   const sorted = sortEntries(sectionEntries, config);
-  const tiebreakActive = !!config.tiebreak;
 
   const section = document.createElement('section');
   section.className = 'classroom-section';
   section.dataset.classroom = classroom.id;
+
+  // Date Added column header shows the active indicator when no other primary sort
+  // is selected (since date_added is always the effective sort in that case).
+  const dateAddedActive = !config.sort;
 
   section.innerHTML = `
     <div class="classroom-header">
@@ -1497,29 +1527,18 @@ function renderClassroomPage(classroomId) {
         <span class="classroom-age-range">${escapeHtml(classroom.ageRange)}</span>
         <span class="classroom-count">${sectionEntries.length}</span>
       </div>
-      <div class="sort-control">
-        <label>Sort by</label>
-        <select data-sort-select data-classroom="${classroom.id}">
-          ${SORT_OPTIONS.map(o =>
-            `<option value="${o.id}" ${o.id === config.sort ? 'selected' : ''}>${o.label}</option>`
-          ).join('')}
-        </select>
-        <label class="tiebreak-toggle ${tiebreakActive ? 'is-active' : ''}"
-               title="When entries tie on the primary sort, break ties by date added">
-          <input type="checkbox" data-tiebreak data-classroom="${classroom.id}"
-                 ${config.tiebreak ? 'checked' : ''}>
-          Then by date added
-        </label>
+      <div class="sort-hint" title="Click a column header to sort. Entries always tiebreak by date added.">
+        Tap a column header to sort
       </div>
     </div>
     <div class="entries">
       ${sorted.length === 0
         ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
         : `<div class="entry-headers" data-classroom="${classroom.id}">
-            <div data-sort-key="date_added" class="${config.sort === 'date_added' ? 'is-active-sort' : ''}">Date Added</div>
+            <div class="${dateAddedActive ? 'is-active-sort' : ''}" title="Entries are always tiebroken by date added">Date Added</div>
             <div>Child</div>
             <div data-sort-key="preferred_start" class="${config.sort === 'preferred_start' ? 'is-active-sort' : ''}">Preferred Start</div>
-            <div data-sort-key="age_at_start" class="${config.sort === 'age_at_start' ? 'is-active-sort' : ''}">Age</div>
+            <div data-sort-key="age" class="${config.sort === 'age' ? 'is-active-sort' : ''}">Age</div>
             <div></div>
           </div>` + sorted.map(renderEntry).join('')
       }
@@ -1527,29 +1546,16 @@ function renderClassroomPage(classroomId) {
   `;
   container.appendChild(section);
 
-  // Wire up sort selects
-  container.querySelectorAll('[data-sort-select]').forEach(sel => {
-    sel.addEventListener('change', e => {
-      setSortConfig(sel.dataset.classroom, { sort: e.target.value });
-      render();
-    });
-  });
-
-  // Wire up tiebreak checkboxes
-  container.querySelectorAll('[data-tiebreak]').forEach(cb => {
-    cb.addEventListener('change', e => {
-      setSortConfig(cb.dataset.classroom, { tiebreak: e.target.checked });
-      render();
-    });
-  });
-
-  // Wire up clickable column headers (per classroom)
+  // Wire up clickable column headers (per classroom). Clicking the same column
+  // again clears the sort (returns to default = date added).
   container.querySelectorAll('.entry-headers [data-sort-key]').forEach(cell => {
     cell.addEventListener('click', () => {
       const headerRow = cell.closest('.entry-headers');
       const classroomId = headerRow && headerRow.dataset.classroom;
       if (!classroomId) return;
-      setSortConfig(classroomId, { sort: cell.dataset.sortKey });
+      const current = getSortConfig(classroomId).sort;
+      const next = current === cell.dataset.sortKey ? null : cell.dataset.sortKey;
+      setSortConfig(classroomId, { sort: next });
       render();
     });
   });
@@ -1570,19 +1576,36 @@ function renderClassroomPage(classroomId) {
 }
 
 function renderEntry(entry) {
-  // "Current age" honors the viewDate so kids displayed reflect their age on the
-  // viewed date when planning ahead.
-  const currentAge = getCurrentAgeMonths(entry.childBirthday, viewDate);
-  const ageAtStart = getAgeAtStartMonths(entry, viewDate);
+  const refDate = viewDate || todayIso();
+  const currentAge = getCurrentAgeMonths(entry.childBirthday, refDate);
+  const ageAtStart = getAgeAtStartMonths(entry, refDate);
   const isPlanning = viewDate && viewDate !== todayIso();
   const ageLabel = isPlanning ? `on ${formatDate(viewDate)}` : 'now';
 
-  // Age-at-start primary, current age underneath. For ASAP entries the two are equal,
-  // so show "ASAP" badge instead of redundant duplicate.
-  const ageAtStartPrimary = `${escapeHtml(formatAge(ageAtStart))}${entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : ''}`;
-  const currentAgeMeta = entry.isASAP
-    ? `<span style="color:var(--text-faint)">starting ${escapeHtml(ageLabel)}</span>`
-    : `${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>`;
+  // Age column logic:
+  //   - If preferred start is in the future → show age at start as primary,
+  //     current age as secondary
+  //   - If preferred start has passed, is ASAP, or is missing → show current
+  //     age as primary; the historical age-at-start no longer makes sense
+  const startInFuture = entry.preferredStartDate &&
+                        !entry.isASAP &&
+                        entry.preferredStartDate >= refDate;
+  const asapBadge = entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : '';
+
+  let agePrimary, ageSecondary;
+  if (startInFuture) {
+    agePrimary = `${escapeHtml(formatAge(ageAtStart))}${asapBadge}`;
+    ageSecondary = `${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>`;
+  } else {
+    agePrimary = `${escapeHtml(formatAge(currentAge))}${asapBadge}`;
+    if (entry.isASAP) {
+      ageSecondary = `<span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>`;
+    } else if (entry.preferredStartDate && entry.preferredStartDate < refDate) {
+      ageSecondary = `<span style="color:var(--text-faint)">start passed</span>`;
+    } else {
+      ageSecondary = `<span style="color:var(--text-faint)">${escapeHtml(ageLabel)}</span>`;
+    }
+  }
 
   const contacted = formatLastContacted(entry.lastContacted);
   const contactedDisplay = entry.lastContacted
@@ -1631,8 +1654,8 @@ function renderEntry(entry) {
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${ageAtStartPrimary}</div>
-        <div class="entry-meta">${currentAgeMeta}</div>
+        <div class="entry-primary">${agePrimary}</div>
+        <div class="entry-meta">${ageSecondary}</div>
       </div>
 
       <div class="entry-actions">
@@ -1741,8 +1764,24 @@ function renderOfferedEntry(entry) {
   const contactedDisplay = entry.lastContacted
     ? `Contacted ${contacted.text}`
     : 'Never contacted';
+
+  // Age column: same fallback logic as the main page.
+  const today = todayIso();
   const ageAtStart = getAgeAtStartMonths(entry);
-  const ageAtStartPrimary = `${escapeHtml(formatAge(ageAtStart))}${entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : ''}`;
+  const startInFuture = entry.preferredStartDate &&
+                        !entry.isASAP &&
+                        entry.preferredStartDate >= today;
+  const asapBadge = entry.isASAP ? ' <span class="asap-badge">ASAP</span>' : '';
+  let agePrimary, ageSecondary;
+  if (startInFuture) {
+    agePrimary = `${escapeHtml(formatAge(ageAtStart))}${asapBadge}`;
+    ageSecondary = `${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">now</span>`;
+  } else {
+    agePrimary = `${escapeHtml(formatAge(currentAge))}${asapBadge}`;
+    ageSecondary = entry.preferredStartDate && entry.preferredStartDate < today
+      ? `<span style="color:var(--text-faint)">start passed</span>`
+      : `<span style="color:var(--text-faint)">now</span>`;
+  }
 
   const emailLink = entry.email
     ? `<a href="mailto:${escapeHtml(entry.email)}">${escapeHtml(entry.email)}</a>`
@@ -1774,8 +1813,8 @@ function renderOfferedEntry(entry) {
       </div>
 
       <div class="entry-col">
-        <div class="entry-primary">${ageAtStartPrimary}</div>
-        <div class="entry-meta">${escapeHtml(formatAge(currentAge))} <span style="color:var(--text-faint)">now</span></div>
+        <div class="entry-primary">${agePrimary}</div>
+        <div class="entry-meta">${ageSecondary}</div>
       </div>
 
       <div class="entry-actions">
