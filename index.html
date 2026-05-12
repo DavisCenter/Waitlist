@@ -600,48 +600,75 @@
     font-weight: 400;
   }
 
-  /* === Page navigation === */
-  .page-nav {
+  /* === Classroom tab navigation === */
+  .classroom-nav {
     display: flex;
-    gap: 4px;
-    align-items: center;
-    margin-left: auto;
-    margin-right: 16px;
+    gap: 2px;
+    align-items: stretch;
+    border-top: 1px solid var(--border);
+    padding: 0 16px;
+    margin-top: 12px;
+    margin-left: -28px;
+    margin-right: -28px;
+    margin-bottom: -18px;
+    background: var(--surface-soft);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
-  .nav-link {
+  .classroom-nav::-webkit-scrollbar {
+    height: 4px;
+  }
+  .nav-tab {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 12px;
-    border-radius: var(--radius-sm);
+    gap: 7px;
+    padding: 11px 14px;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-muted);
     text-decoration: none;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
     transition: all 0.12s;
-    border: 1px solid transparent;
+    position: relative;
   }
-  .nav-link:hover {
+  .nav-tab:hover {
     color: var(--text);
-    background: var(--surface-soft);
+    background: rgba(0,0,0,0.025);
   }
-  .nav-link.is-active {
-    color: var(--accent);
-    background: var(--accent-soft);
-    border-color: rgba(74,111,165,0.18);
+  .nav-tab.is-active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    font-weight: 650;
+  }
+  .nav-tab[data-classroom-id="infant_a"].is-active      { border-bottom-color: #8fb8d6; }
+  .nav-tab[data-classroom-id="infant_b"].is-active      { border-bottom-color: #7cc4b8; }
+  .nav-tab[data-classroom-id="toddlers"].is-active      { border-bottom-color: #9bc97a; }
+  .nav-tab[data-classroom-id="twos"].is-active          { border-bottom-color: #e3c769; }
+  .nav-tab[data-classroom-id="preschool_one"].is-active { border-bottom-color: #e8a972; }
+  .nav-tab[data-classroom-id="prek"].is-active          { border-bottom-color: #d68fa8; }
+  .nav-tab.is-offered.is-active {
+    border-bottom-color: var(--warn);
+  }
+  .nav-count {
+    background: rgba(0,0,0,0.06);
+    color: var(--text-muted);
+    font-size: 11px;
     font-weight: 600;
-  }
-  .nav-badge {
-    display: inline-block;
-    background: var(--warn);
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
     padding: 1px 7px;
     border-radius: 9px;
-    line-height: 14px;
-    min-width: 16px;
+    min-width: 18px;
     text-align: center;
+    line-height: 16px;
+  }
+  .nav-tab.is-active .nav-count {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .nav-tab.is-offered .nav-count {
+    background: #fff3e0;
+    color: var(--warn);
   }
 
   button.primary-soft {
@@ -761,18 +788,12 @@
       <h1 id="page-title">Waitlist</h1>
       <div class="subtitle" id="page-subtitle">Manage prospective enrollment by classroom</div>
     </div>
-    <nav class="page-nav" aria-label="Page navigation">
-      <a href="#/" class="nav-link" data-route="main">Waitlist</a>
-      <a href="#/offered" class="nav-link" data-route="offered">
-        Offered Spots
-        <span class="nav-badge" id="offered-count" style="display:none">0</span>
-      </a>
-    </nav>
     <div class="header-actions">
       <button id="export-csv-btn">Export CSV</button>
       <button id="add-entry-btn" class="primary">+ Add to Waitlist</button>
     </div>
   </div>
+  <nav class="classroom-nav" id="classroom-nav" aria-label="Classroom navigation"></nav>
 </header>
 
 <div class="storage-warning" id="storage-warning">
@@ -1274,13 +1295,22 @@ function sendBackToWaitlist(id) {
 }
 
 /* === Routing (hash-based) === */
+// Routes:
+//   #/                       → default to first classroom
+//   #/classroom/{id}         → single classroom page
+//   #/offered                → spots offered
+// Returns { type: 'classroom' | 'offered', classroomId? }
 function getRoute() {
   const h = (window.location.hash || '').toLowerCase();
-  if (h === '#/offered' || h === '#offered') return 'offered';
-  return 'main';
+  if (h === '#/offered' || h === '#offered') return { type: 'offered' };
+  const m = h.match(/^#\/classroom\/([a-z_]+)\/?$/);
+  if (m && CLASSROOMS.some(c => c.id === m[1])) {
+    return { type: 'classroom', classroomId: m[1] };
+  }
+  return { type: 'classroom', classroomId: CLASSROOMS[0].id, isDefault: true };
 }
-function navigate(route) {
-  window.location.hash = route === 'offered' ? '#/offered' : '#/';
+function navigate(routeHash) {
+  window.location.hash = routeHash;
 }
 
 
@@ -1378,98 +1408,124 @@ function escapeHtml(s) {
 }
 
 function render() {
-  // Update the offered count badge in the header on every render so it stays current.
-  updateOfferedBadge();
-  // Dispatch by hash route.
-  if (getRoute() === 'offered') {
+  const route = getRoute();
+  renderClassroomNav();
+  updatePageTitleFor(route);
+  if (route.type === 'offered') {
     renderOfferedPage();
     return;
   }
-  renderMainPage();
+  if (route.type === 'classroom') {
+    renderClassroomPage(route.classroomId);
+    return;
+  }
 }
 
-function updateOfferedBadge() {
+function renderClassroomNav() {
+  const nav = document.getElementById('classroom-nav');
+  if (!nav) return;
+  const route = getRoute();
+  const activeEntriesByClassroom = {};
+  entries.forEach(e => {
+    if ((e.status || 'active') !== 'active') return;
+    const cid = getClassroomForEntry(e, viewDate);
+    activeEntriesByClassroom[cid] = (activeEntriesByClassroom[cid] || 0) + 1;
+  });
   const offeredCount = entries.filter(e => e.status === 'offered').length;
-  const badge = document.getElementById('offered-count');
-  if (!badge) return;
-  badge.textContent = offeredCount;
-  badge.style.display = offeredCount > 0 ? 'inline-block' : 'none';
+
+  const items = CLASSROOMS.map(c => {
+    const count = activeEntriesByClassroom[c.id] || 0;
+    const isActive = route.type === 'classroom' && route.classroomId === c.id;
+    return `
+      <a href="#/classroom/${c.id}" class="nav-tab ${isActive ? 'is-active' : ''}" data-classroom-id="${c.id}">
+        <span>${escapeHtml(c.name)}</span>
+        ${count > 0 ? `<span class="nav-count">${count}</span>` : ''}
+      </a>
+    `;
+  });
+  items.push(`
+    <a href="#/offered" class="nav-tab is-offered ${route.type === 'offered' ? 'is-active' : ''}">
+      <span>Offered</span>
+      ${offeredCount > 0 ? `<span class="nav-count">${offeredCount}</span>` : ''}
+    </a>
+  `);
+  nav.innerHTML = items.join('');
 }
 
-function renderMainPage() {
+function updatePageTitleFor(route) {
+  const titleEl = document.getElementById('page-title');
+  const subtitleEl = document.getElementById('page-subtitle');
+  if (route.type === 'offered') {
+    titleEl.textContent = 'Spots Offered';
+    subtitleEl.textContent = 'Track families with offered spots awaiting response';
+    return;
+  }
+  const c = CLASSROOMS.find(x => x.id === route.classroomId);
+  if (!c) return;
+  const count = entries.filter(e =>
+    (e.status || 'active') === 'active' &&
+    getClassroomForEntry(e, viewDate) === c.id
+  ).length;
+  titleEl.textContent = c.name;
+  subtitleEl.textContent = `${count} ${count === 1 ? 'child' : 'children'} waiting · ${c.ageRange}`;
+}
+
+function renderClassroomPage(classroomId) {
   document.getElementById('main-view').style.display = '';
   document.getElementById('offered-view').style.display = 'none';
   updateTimeTravelBar();
 
-  // Only show entries currently on the active waitlist. Missing `status` defaults
-  // to 'active' for backward compatibility with entries seeded before the
-  // offered-spot feature existed.
-  const activeEntries = entries.filter(e => (e.status || 'active') === 'active');
+  const classroom = CLASSROOMS.find(c => c.id === classroomId) || CLASSROOMS[0];
   const container = document.getElementById('classroom-sections');
   container.innerHTML = '';
 
-  if (activeEntries.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'page-empty';
-    empty.innerHTML = `
-      <p>No one on the waitlist yet.</p>
-      <button class="primary" id="page-empty-add">+ Add the first entry</button>
-    `;
-    container.appendChild(empty);
-    document.getElementById('page-empty-add').addEventListener('click', openAddModal);
-    return;
-  }
+  const activeEntries = entries.filter(e => (e.status || 'active') === 'active');
+  const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
 
-  for (const classroom of CLASSROOMS) {
-    const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
-    const config = getSortConfig(classroom.id);
-    const sorted = sortEntries(sectionEntries, config);
-    // The visual "active" state mirrors the checkbox check directly so clicking always gives
-    // immediate feedback. The tiebreak is a no-op when primary is already date_added, but the
-    // user's preference is preserved either way.
-    const tiebreakActive = !!config.tiebreak;
+  const config = getSortConfig(classroom.id);
+  const sorted = sortEntries(sectionEntries, config);
+  const tiebreakActive = !!config.tiebreak;
 
-    const section = document.createElement('section');
-    section.className = 'classroom-section';
-    section.dataset.classroom = classroom.id;
+  const section = document.createElement('section');
+  section.className = 'classroom-section';
+  section.dataset.classroom = classroom.id;
 
-    section.innerHTML = `
-      <div class="classroom-header">
-        <div class="classroom-title">
-          <span class="classroom-name">${escapeHtml(classroom.name)}</span>
-          <span class="classroom-age-range">${escapeHtml(classroom.ageRange)}</span>
-          <span class="classroom-count">${sectionEntries.length}</span>
-        </div>
-        <div class="sort-control">
-          <label>Sort by</label>
-          <select data-sort-select data-classroom="${classroom.id}">
-            ${SORT_OPTIONS.map(o =>
-              `<option value="${o.id}" ${o.id === config.sort ? 'selected' : ''}>${o.label}</option>`
-            ).join('')}
-          </select>
-          <label class="tiebreak-toggle ${tiebreakActive ? 'is-active' : ''}"
-                 title="When entries tie on the primary sort, break ties by date added">
-            <input type="checkbox" data-tiebreak data-classroom="${classroom.id}"
-                   ${config.tiebreak ? 'checked' : ''}>
-            Then by date added
-          </label>
-        </div>
+  section.innerHTML = `
+    <div class="classroom-header">
+      <div class="classroom-title">
+        <span class="classroom-name">${escapeHtml(classroom.name)}</span>
+        <span class="classroom-age-range">${escapeHtml(classroom.ageRange)}</span>
+        <span class="classroom-count">${sectionEntries.length}</span>
       </div>
-      <div class="entries">
-        ${sorted.length === 0
-          ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
-          : `<div class="entry-headers" data-classroom="${classroom.id}">
-              <div data-sort-key="date_added" class="${config.sort === 'date_added' ? 'is-active-sort' : ''}">Date Added</div>
-              <div>Child</div>
-              <div data-sort-key="preferred_start" class="${config.sort === 'preferred_start' ? 'is-active-sort' : ''}">Preferred Start</div>
-              <div data-sort-key="age_at_start" class="${config.sort === 'age_at_start' ? 'is-active-sort' : ''}">Age</div>
-              <div></div>
-            </div>` + sorted.map(renderEntry).join('')
-        }
+      <div class="sort-control">
+        <label>Sort by</label>
+        <select data-sort-select data-classroom="${classroom.id}">
+          ${SORT_OPTIONS.map(o =>
+            `<option value="${o.id}" ${o.id === config.sort ? 'selected' : ''}>${o.label}</option>`
+          ).join('')}
+        </select>
+        <label class="tiebreak-toggle ${tiebreakActive ? 'is-active' : ''}"
+               title="When entries tie on the primary sort, break ties by date added">
+          <input type="checkbox" data-tiebreak data-classroom="${classroom.id}"
+                 ${config.tiebreak ? 'checked' : ''}>
+          Then by date added
+        </label>
       </div>
-    `;
-    container.appendChild(section);
-  }
+    </div>
+    <div class="entries">
+      ${sorted.length === 0
+        ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
+        : `<div class="entry-headers" data-classroom="${classroom.id}">
+            <div data-sort-key="date_added" class="${config.sort === 'date_added' ? 'is-active-sort' : ''}">Date Added</div>
+            <div>Child</div>
+            <div data-sort-key="preferred_start" class="${config.sort === 'preferred_start' ? 'is-active-sort' : ''}">Preferred Start</div>
+            <div data-sort-key="age_at_start" class="${config.sort === 'age_at_start' ? 'is-active-sort' : ''}">Age</div>
+            <div></div>
+          </div>` + sorted.map(renderEntry).join('')
+      }
+    </div>
+  `;
+  container.appendChild(section);
 
   // Wire up sort selects
   container.querySelectorAll('[data-sort-select]').forEach(sel => {
@@ -1940,15 +1996,13 @@ document.addEventListener('DOMContentLoaded', () => {
   viewDateInput.addEventListener('change', e => {
     viewDate = e.target.value || todayIso();
     storage.set(VIEW_DATE_KEY, viewDate);
-    updateTimeTravelBar();
-    renderMainPage();
+    render();
   });
   document.getElementById('time-travel-today').addEventListener('click', () => {
     viewDate = todayIso();
     viewDateInput.value = viewDate;
     storage.set(VIEW_DATE_KEY, viewDate);
-    updateTimeTravelBar();
-    renderMainPage();
+    render();
   });
 
   // Wire global buttons
@@ -1974,14 +2028,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warning) warning.style.display = 'block';
   }
 
-  // Hash route changes — re-render and update active nav link styling
-  window.addEventListener('hashchange', () => {
-    updateNavActive();
-    render();
-  });
+  // Hash route changes — re-render the page and the nav highlights via render()
+  window.addEventListener('hashchange', () => { render(); });
 
   seedIfNeeded();
-  updateNavActive();
   render();
 });
 
@@ -2005,23 +2055,6 @@ function updateTimeTravelBar() {
   else if (absDays < 365) span = `${months}mo`;
   else span = `${(absDays / 365).toFixed(1)}y`;
   note.textContent = `Viewing ${span} ${direction} — classrooms reflect ages on ${formatDate(viewDate)}.`;
-}
-
-function updateNavActive() {
-  const route = getRoute();
-  document.querySelectorAll('.nav-link').forEach(a => {
-    a.classList.toggle('is-active', a.dataset.route === route);
-  });
-  // Update page title/subtitle
-  const title = document.getElementById('page-title');
-  const subtitle = document.getElementById('page-subtitle');
-  if (route === 'offered') {
-    title.textContent = 'Spots Offered';
-    subtitle.textContent = 'Track families with offered spots awaiting response';
-  } else {
-    title.textContent = 'Waitlist';
-    subtitle.textContent = 'Manage prospective enrollment by classroom';
-  }
 }
 
 // Public API for future website-form integration
