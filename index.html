@@ -1039,10 +1039,10 @@ function getClassroomForEntry(entry, asOf) {
 }
 
 // User-selectable sort keys (via clickable column headers). 'date_added' is
-// intentionally NOT here — it's the always-on secondary sort, applied after the
-// user's selection. When no column is selected, entries fall back to date_added
-// ascending (oldest entry first).
-const SORTABLE_KEYS = new Set(['preferred_start', 'age', 'last_contacted']);
+// included so users can explicitly set it as primary (useful for "reset to
+// default" by clicking it after sorting by something else). date_added is also
+// the always-on secondary tiebreaker regardless of the chosen primary.
+const SORTABLE_KEYS = new Set(['date_added', 'preferred_start', 'age', 'last_contacted']);
 
 // Imported entries from Waitlist.xlsx (May 2026). Seeded once on first run;
 // flag in localStorage prevents re-seeding on subsequent loads.
@@ -1547,9 +1547,9 @@ function renderClassroomPage(classroomId) {
   section.className = 'classroom-section';
   section.dataset.classroom = classroom.id;
 
-  // Date Added column header shows the active indicator when no other primary sort
-  // is selected (since date_added is always the effective sort in that case).
-  const dateAddedActive = !config.sort;
+  // Date Added column header shows the active indicator when it's the explicit
+  // sort OR when no other primary is selected (since date_added is the default).
+  const dateAddedActive = !config.sort || config.sort === 'date_added';
 
   section.innerHTML = `
     <div class="classroom-header">
@@ -1566,7 +1566,7 @@ function renderClassroomPage(classroomId) {
       ${sorted.length === 0
         ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
         : `<div class="entry-headers" data-classroom="${classroom.id}">
-            <div class="${dateAddedActive ? 'is-active-sort' : ''}" title="Entries are always tiebroken by date added">Date Added</div>
+            <div data-sort-key="date_added" class="${dateAddedActive ? 'is-active-sort' : ''}" title="Sort by date added">Date Added</div>
             <div>Child</div>
             <div data-sort-key="preferred_start" class="${config.sort === 'preferred_start' ? 'is-active-sort' : ''}">Preferred Start</div>
             <div data-sort-key="age" class="${config.sort === 'age' ? 'is-active-sort' : ''}">Age</div>
