@@ -754,6 +754,21 @@
     padding: 6px 10px;
     font-size: 13px;
   }
+  #waitlist-search {
+    margin-left: auto;
+    min-width: 220px;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+  }
+  #waitlist-search:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
   .time-travel-today {
     padding: 6px 10px;
     font-size: 12px;
@@ -1471,6 +1486,7 @@
         <input type="date" id="view-date">
         <button class="time-travel-today" id="time-travel-today" type="button">Today</button>
         <span class="time-travel-note" id="time-travel-note"></span>
+        <input type="search" id="waitlist-search" placeholder="Search waitlist..." autocomplete="off">
       </div>
     </div>
     <div id="classroom-sections"></div>
@@ -1559,10 +1575,12 @@
       </div>
 
       <div id="child-history-section" style="margin-top:18px;">
+        <div id="child-original-waitlist" style="display:none; font-size:12px; color:var(--text-faint); margin-bottom:6px;"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <label style="margin:0;">Enrollment history</label>
           <div style="display:flex; gap:6px;">
             <button type="button" id="schedule-move-btn">+ Schedule move</button>
+            <button type="button" id="back-to-waitlist-btn">Back to waitlist</button>
             <button type="button" class="danger" id="withdraw-btn">Withdraw</button>
           </div>
         </div>
@@ -1641,7 +1659,7 @@
         <textarea id="start-child-notes" rows="2"></textarea>
       </div>
       <div style="font-size:12px; color:var(--text-muted); background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;">
-        This will move the family off the waitlist and into the enrollment roster.
+        This will move the family off the waitlist and into Projections.
       </div>
     </div>
     <div class="modal-footer">
@@ -2243,6 +2261,8 @@ let enrollMoves = loadEnrollMoves();
 let childrenSort = loadChildrenSort();
 let childrenSearch = '';
 let childrenFilter = 'enrolled';
+// Search query for the Waitlist view (filters by child / parent / email / phone).
+let waitlistSearch = '';
 // Currently editing child (in child-modal). null when adding a new child.
 let editingChildId = null;
 // Roster start month (first column). Stored as 'YYYY-MM'.
@@ -2650,11 +2670,26 @@ function updatePageTitleFor(route) {
   subtitleEl.textContent = `${count} ${count === 1 ? 'child' : 'children'} waiting · ${c.ageRange}`;
 }
 
+// Filter helper for the Waitlist search box. Matches against child name,
+// parent name, email, and phone (case-insensitive substring).
+function matchesWaitlistSearch(entry, query) {
+  if (!query) return true;
+  const q = query.toLowerCase().trim();
+  if (!q) return true;
+  return (entry.childName || '').toLowerCase().includes(q)
+      || (entry.parentName || '').toLowerCase().includes(q)
+      || (entry.email || '').toLowerCase().includes(q)
+      || (entry.phone || '').toLowerCase().includes(q);
+}
+
 // Builds one classroom <section> and appends it to the container.
 // Shared between renderClassroomPage (single) and renderAllPage (all six stacked).
 function appendClassroomSection(classroom, container) {
   const activeEntries = entries.filter(e => (e.status || 'active') === 'active');
-  const sectionEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
+  const allClassroomEntries = activeEntries.filter(e => getClassroomForEntry(e, viewDate) === classroom.id);
+  const sectionEntries = allClassroomEntries.filter(e => matchesWaitlistSearch(e, waitlistSearch));
+  const hasSearch = !!(waitlistSearch || '').trim();
+  const hasNoMatches = hasSearch && allClassroomEntries.length > 0 && sectionEntries.length === 0;
 
   const config = getSortConfig(classroom.id);
   const sorted = sortEntries(sectionEntries, config);
@@ -2677,7 +2712,9 @@ function appendClassroomSection(classroom, container) {
     </div>
     <div class="entries">
       ${sorted.length === 0
-        ? `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`
+        ? (hasNoMatches
+            ? `<div class="empty-state">${escapeHtml(classroom.name)} — no matches</div>`
+            : `<div class="empty-state">No one on the list for ${escapeHtml(classroom.name)} yet.</div>`)
         : `<div class="entry-headers" data-classroom="${classroom.id}">
             <div data-sort-key="date_added" class="${dateAddedActive ? 'is-active-sort' : ''}" title="Sort by date added">Date Added</div>
             <div>Child</div>
@@ -3274,6 +3311,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('schedule-move-save-btn').addEventListener('click', saveScheduleMove);
   document.getElementById('withdraw-btn').addEventListener('click', withdrawCurrentChild);
+  document.getElementById('back-to-waitlist-btn').addEventListener('click', sendCurrentChildBackToWaitlist);
   // Withdrawal type hides the classroom select since target is null.
   document.getElementById('schedule-move-type').addEventListener('change', e => {
     const isWithdrawal = e.target.value === 'withdrawal';
@@ -3381,6 +3419,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRosterView();
   });
 
+  // Waitlist search box.
+  const waitlistSearchInput = document.getElementById('waitlist-search');
+  if (waitlistSearchInput) {
+    waitlistSearchInput.addEventListener('input', e => {
+      waitlistSearch = e.target.value;
+      if (currentMode === 'waitlist') render();
+    });
+  }
+
   // Children directory toolbar.
   document.getElementById('children-search').addEventListener('input', e => {
     childrenSearch = e.target.value;
@@ -3467,7 +3514,7 @@ function renderModeNav() {
   if (!nav) return;
   const tabs = [
     { id: 'waitlist', label: 'Waitlist',  count: entries.filter(e => (e.status || 'active') === 'active').length, countLabel: 'on waitlist' },
-    { id: 'roster',   label: 'Roster',    count: enrollChildren.filter(c => c.status === 'enrolled').length, countLabel: 'enrolled' },
+    { id: 'roster',   label: 'Projections', count: enrollChildren.filter(c => c.status === 'enrolled').length, countLabel: 'enrolled' },
     { id: 'children', label: 'Children',  count: enrollChildren.length, countLabel: 'children' }
   ];
   nav.innerHTML = tabs.map(t => `
@@ -4068,8 +4115,31 @@ function openChildModal(childId) {
   form.elements.notes.value = child.notes || '';
   document.getElementById('child-history-section').style.display = '';
   document.getElementById('schedule-move-form').style.display = 'none';
+  updateChildModalActionState(child);
   renderChildHistory(childId);
   document.getElementById('child-modal').showModal();
+}
+
+// Updates the Withdraw / Back-to-waitlist button states and the small
+// "Originally added to waitlist" line based on the child's current state.
+function updateChildModalActionState(child) {
+  const backBtn = document.getElementById('back-to-waitlist-btn');
+  if (backBtn) {
+    const isWithdrawn = child.status === 'withdrawn';
+    const hasClassroom = !!child.currentClassroomId;
+    backBtn.disabled = isWithdrawn || !hasClassroom;
+  }
+  const originalLine = document.getElementById('child-original-waitlist');
+  if (originalLine) {
+    if (child.originalWaitlistAddedDate) {
+      const iso = (child.originalWaitlistAddedDate || '').slice(0, 10);
+      originalLine.textContent = `Originally added to waitlist: ${formatDate(iso)}`;
+      originalLine.style.display = '';
+    } else {
+      originalLine.textContent = '';
+      originalLine.style.display = 'none';
+    }
+  }
 }
 
 function closeChildModal() {
@@ -4223,6 +4293,64 @@ function withdrawCurrentChild() {
   }
 }
 
+// Moves the currently-open child back onto the active waitlist. Creates a new
+// waitlist entry (preserving the original date-added if we have it), writes a
+// withdrawal move event, and marks the child as withdrawn so they drop out of
+// the Projections grid.
+function sendCurrentChildBackToWaitlist() {
+  if (!editingChildId) return;
+  const child = enrollChildren.find(c => c.id === editingChildId);
+  if (!child) return;
+  if (child.status === 'withdrawn') return;
+  if (!child.currentClassroomId) return;
+  if (!confirm(`Move ${child.name} back to the waitlist? They'll be removed from Projections and re-added to the active waitlist.`)) return;
+
+  const nowIso = new Date().toISOString();
+  const today = todayIso();
+
+  // Create a new waitlist entry mirroring the shape produced by addEntry()
+  // / normalizeEntry(). We preserve the original dateAdded so the family
+  // keeps its place in line if we have it.
+  const newEntry = normalizeEntry({
+    id: uuid(),
+    childName: child.name,
+    childBirthday: child.dob || '',
+    parentName: child.parentName || '',
+    phone: child.parentPhone || '',
+    email: child.parentEmail || '',
+    isASAP: false,
+    preferredStartDate: null,
+    lastContacted: null,
+    touredOn: null,
+    notes: child.notes || '',
+    status: 'active',
+    dateAdded: child.originalWaitlistAddedDate || nowIso
+  });
+  entries.push(newEntry);
+  saveEntries();
+
+  // Withdrawal move event for the child.
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId: child.id,
+    type: 'withdrawal',
+    targetClassroomId: null,
+    effectiveDate: today,
+    transitionWeek: null,
+    notes: 'Returned to waitlist',
+    createdAt: nowIso,
+    approved: true
+  });
+  child.status = 'withdrawn';
+  child.currentClassroomId = null;
+  saveEnrollMoves();
+  saveEnrollChildren();
+
+  refreshAllCachedClassrooms();
+  closeChildModal();
+  render();
+}
+
 // Shared helper: writes the withdrawal move + status change for a child.
 // Used by both the deep child-modal "Withdraw" button and the small Roster
 // popover "Disenroll" button. Returns true if the disenrollment happened,
@@ -4232,7 +4360,7 @@ function disenrollChild(childId) {
   const child = enrollChildren.find(c => c.id === childId);
   if (!child) return false;
   if (child.status === 'withdrawn') return false;
-  if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from the roster.`)) return false;
+  if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from Projections.`)) return false;
   const today = todayIso();
   enrollMoves.push({
     id: enrollUuid('move'),
@@ -4307,7 +4435,9 @@ function handleStartChildSubmit(e) {
     notes: entry.notes || '',
     status: 'enrolled',
     currentClassroomId: classroomId,
-    createdAt: now
+    createdAt: now,
+    originalWaitlistEntryId: entry.id,
+    originalWaitlistAddedDate: entry.dateAdded || entry.createdAt || null
   });
   enrollMoves.push({
     id: enrollUuid('move'),
@@ -4360,7 +4490,7 @@ function updatePageHeader() {
   const title = document.getElementById('page-title');
   const subtitle = document.getElementById('page-subtitle');
   if (currentMode === 'roster') {
-    title.textContent = 'Enrollment Roster';
+    title.textContent = 'Projections';
     const enrolled = enrollChildren.filter(c => c.status === 'enrolled').length;
     subtitle.textContent = `${enrolled} ${enrolled === 1 ? 'child' : 'children'} enrolled · 12-month view`;
   } else if (currentMode === 'children') {
@@ -4417,7 +4547,7 @@ function injectStartChildButtons() {
     btn.className = 'primary-soft';
     btn.dataset.action = 'start-child';
     btn.dataset.id = id;
-    btn.title = 'Move this family off the waitlist and into the enrollment roster';
+    btn.title = 'Move this family off the waitlist and into Projections';
     btn.textContent = 'Start child';
     // Insert before the Offered Spot button so the flow reads: Contact → Start
     // child → Offered. (Existing buttons are kept intact.)
