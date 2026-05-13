@@ -910,6 +910,20 @@
     background: #fff3e0;
     color: #7a4a0d;
   }
+  .roster-month-label {
+    /* upper line in the header cell — month name (e.g. "May 2026") */
+  }
+  .roster-month-total {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .roster-cell.is-header.is-today .roster-month-total {
+    color: #7a4a0d;
+  }
   .roster-cell.is-classroom-label {
     background: var(--surface-soft);
     font-weight: 700;
@@ -3568,7 +3582,15 @@ function getClassroomForChildOnDate(child, date) {
 function getRosterForClassroomOnDate(classroomId, date) {
   return enrollChildren
     .filter(c => getClassroomForChildOnDate(c, date) === classroomId)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      // Youngest first (most recent DOB first). Kids with no DOB sink to the bottom,
+      // then sorted by name as a stable tiebreaker.
+      if (!a.dob && !b.dob) return a.name.localeCompare(b.name);
+      if (!a.dob) return 1;
+      if (!b.dob) return -1;
+      const cmp = b.dob.localeCompare(a.dob); // later DOB (younger) ranks first
+      return cmp !== 0 ? cmp : a.name.localeCompare(b.name);
+    });
 }
 
 /* === Roster cell state (for color coding) === */
@@ -3637,11 +3659,24 @@ function renderRosterView() {
   grid.style.gridTemplateColumns = `minmax(160px, 1.4fr) repeat(${months.length}, minmax(130px, 1fr))`;
   let html = '';
 
-  // Header row: corner + month labels.
+  // Pre-compute total enrollment per month, so we can show it in each header cell.
+  // "Total" here = sum of roster counts across all classrooms for the given as-of date.
+  const monthTotals = months.map(m => {
+    const asOf = lastDayOfMonth(m);
+    return CLASSROOMS.reduce((sum, c) => sum + getRosterForClassroomOnDate(c.id, asOf).length, 0);
+  });
+
+  // Header row: corner + month labels with total enrollment underneath.
   html += `<div class="roster-cell is-header is-corner">Classroom</div>`;
-  for (const m of months) {
+  for (let i = 0; i < months.length; i++) {
+    const m = months[i];
     const isToday = m === thisMonthIso;
-    html += `<div class="roster-cell is-header ${isToday ? 'is-today' : ''}">${escapeHtml(monthLabel(m))}</div>`;
+    html += `
+      <div class="roster-cell is-header ${isToday ? 'is-today' : ''}">
+        <div class="roster-month-label">${escapeHtml(monthLabel(m))}</div>
+        <div class="roster-month-total">${monthTotals[i]} enrolled</div>
+      </div>
+    `;
   }
 
   // One row per classroom.
