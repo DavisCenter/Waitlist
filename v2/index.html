@@ -1031,6 +1031,22 @@
     font-style: italic;
     font-size: 11px;
   }
+  /* Placeholder for an unfilled seat — visualizes available capacity in each
+     classroom for each month. Same height as a roster-child so the column
+     stays evenly laid out, but visually distinct (dashed, muted). */
+  .roster-empty-slot {
+    display: block;
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-bottom: 3px;
+    font-size: 11px;
+    line-height: 1.3;
+    color: var(--text-faint);
+    text-align: center;
+    user-select: none;
+  }
 
   /* === Roster cell color-coding (today's column only) === */
   /* Applied to each child's button (roster-child) — the per-child "cell" that
@@ -3846,26 +3862,35 @@ function renderRosterView() {
       // Only the "today" column gets the planned/approaching cell-state classes.
       const isHighlightColumn = monthIdx === highlightColumnIdx;
 
-      const kidsHtml = roster.length === 0
-        ? '<div class="roster-empty-classroom">empty</div>'
-        : roster.map(child => {
-            const ageMonths = diffMonths(child.dob, asOfM);
-            const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
-            // Per-child cell state — only computed for the highlight column.
-            let cellStateCls = '';
-            if (isHighlightColumn) {
-              const state = computeRosterCellState(child, classroom.id, todayIsoStr, horizonIso);
-              if (state === 'planned')          cellStateCls = 'is-planned';
-              else if (state === 'approaching') cellStateCls = 'is-approaching';
-            }
-            return `
-              <button class="roster-child ${cellStateCls}" data-child-id="${child.id}" type="button"
-                      title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
-                <span class="roster-child-name">${escapeHtml(child.name)}</span>
-                <span class="roster-child-age">${escapeHtml(ageStr)}</span>
-              </button>
-            `;
-          }).join('');
+      // Render each enrolled child as a roster-child button.
+      const childrenHtml = roster.map(child => {
+        const ageMonths = diffMonths(child.dob, asOfM);
+        const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
+        // Per-child cell state — only computed for the highlight column.
+        let cellStateCls = '';
+        if (isHighlightColumn) {
+          const state = computeRosterCellState(child, classroom.id, todayIsoStr, horizonIso);
+          if (state === 'planned')          cellStateCls = 'is-planned';
+          else if (state === 'approaching') cellStateCls = 'is-approaching';
+        }
+        return `
+          <button class="roster-child ${cellStateCls}" data-child-id="${child.id}" type="button"
+                  title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
+            <span class="roster-child-name">${escapeHtml(child.name)}</span>
+            <span class="roster-child-age">${escapeHtml(ageStr)}</span>
+          </button>
+        `;
+      }).join('');
+
+      // Append placeholder squares for unfilled seats — one per open spot up to capacity.
+      // When over capacity, no placeholders are shown (the red count badge surfaces the issue).
+      const openSpots = Math.max(0, classroom.capacity - count);
+      const placeholdersHtml = openSpots === 0 ? '' :
+        Array.from({ length: openSpots })
+          .map(() => `<div class="roster-empty-slot" aria-hidden="true">Open</div>`)
+          .join('');
+
+      const kidsHtml = childrenHtml + placeholdersHtml;
       html += `
         <div class="roster-cell">
           ${kidsHtml}
