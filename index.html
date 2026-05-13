@@ -35,6 +35,7 @@
   .classroom-section[data-classroom="toddlers"]      { --accent-bar: #9bc97a; }
   .classroom-section[data-classroom="twos"]          { --accent-bar: #e3c769; }
   .classroom-section[data-classroom="preschool_one"] { --accent-bar: #e8a972; }
+  .classroom-section[data-classroom="preschool_two"] { --accent-bar: #c89cd6; }
   .classroom-section[data-classroom="prek"]          { --accent-bar: #d68fa8; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -673,6 +674,7 @@
   .nav-tab[data-classroom-id="toddlers"].is-active      { border-bottom-color: #9bc97a; }
   .nav-tab[data-classroom-id="twos"].is-active          { border-bottom-color: #e3c769; }
   .nav-tab[data-classroom-id="preschool_one"].is-active { border-bottom-color: #e8a972; }
+  .nav-tab[data-classroom-id="preschool_two"].is-active { border-bottom-color: #c89cd6; }
   .nav-tab[data-classroom-id="prek"].is-active          { border-bottom-color: #d68fa8; }
   .nav-tab.is-offered.is-active {
     border-bottom-color: var(--warn);
@@ -784,6 +786,518 @@
     color: #5a3608;
   }
 
+  /* === Top-level mode nav (Waitlist / Roster / Children) === */
+  .mode-nav {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .mode-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    transition: all 0.12s;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mode-tab:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .mode-tab.is-active {
+    color: white;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .mode-tab .mode-badge {
+    background: rgba(0,0,0,0.08);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 9px;
+    min-width: 18px;
+    text-align: center;
+    line-height: 16px;
+  }
+  .mode-tab.is-active .mode-badge {
+    background: rgba(255,255,255,0.25);
+    color: white;
+  }
+
+  /* === Roster (Excel-style monthly grid) === */
+  .roster-toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    padding: 10px 18px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .roster-toolbar label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin: 0;
+  }
+  .roster-toolbar input[type="date"] {
+    width: auto;
+    min-width: 160px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .roster-toolbar .roster-note {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-style: italic;
+    margin-left: auto;
+  }
+  .roster-scroll {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .roster-grid {
+    display: grid;
+    /* First column = classroom label (sticky); then one column per month */
+    min-width: 100%;
+  }
+  .roster-cell {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    min-width: 130px;
+    vertical-align: top;
+  }
+  .roster-cell:last-child {
+    border-right: none;
+  }
+  .roster-cell.is-header {
+    background: var(--surface-soft);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 10px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .roster-cell.is-header.is-today {
+    background: #fff3e0;
+    color: #7a4a0d;
+  }
+  .roster-cell.is-classroom-label {
+    background: var(--surface-soft);
+    font-weight: 700;
+    font-size: 12px;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-shadow: 1px 0 0 var(--border);
+    border-left: 4px solid var(--accent-bar, var(--border));
+    min-width: 160px;
+  }
+  .roster-cell.is-classroom-label[data-classroom="infant_a"]      { --accent-bar: #8fb8d6; }
+  .roster-cell.is-classroom-label[data-classroom="infant_b"]      { --accent-bar: #7cc4b8; }
+  .roster-cell.is-classroom-label[data-classroom="toddlers"]      { --accent-bar: #9bc97a; }
+  .roster-cell.is-classroom-label[data-classroom="twos"]          { --accent-bar: #e3c769; }
+  .roster-cell.is-classroom-label[data-classroom="preschool_one"] { --accent-bar: #e8a972; }
+  .roster-cell.is-classroom-label[data-classroom="preschool_two"] { --accent-bar: #c89cd6; }
+  .roster-cell.is-classroom-label[data-classroom="prek"]          { --accent-bar: #d68fa8; }
+  .roster-cell.is-corner {
+    background: var(--surface-soft);
+    position: sticky;
+    left: 0;
+    top: 0;
+    z-index: 3;
+    box-shadow: 1px 0 0 var(--border);
+  }
+  .roster-classroom-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .roster-classroom-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .roster-child {
+    display: block;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-bottom: 3px;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 11px;
+    line-height: 1.3;
+    text-align: left;
+    width: 100%;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .roster-child:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .roster-child .roster-child-name {
+    font-weight: 600;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .roster-child .roster-child-age {
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+  .roster-count {
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    text-align: center;
+    background: #f0ece2;
+    color: var(--text-muted);
+  }
+  .roster-count.is-at-capacity {
+    background: #fff3e0;
+    color: #7a4a0d;
+  }
+  .roster-count.is-over-capacity {
+    background: #fdf0f0;
+    color: var(--danger);
+  }
+  .roster-empty-classroom {
+    color: var(--text-faint);
+    font-style: italic;
+    font-size: 11px;
+  }
+
+  /* === Roster cell color-coding (today's column only) === */
+  /* Applied to each child's button (roster-child) — the per-child "cell" that
+     visually represents one kid in one classroom on the today column. */
+  .roster-cell.is-planned,
+  .roster-child.is-planned {
+    background: rgba(74, 111, 165, 0.10);
+    border-left: 3px solid #4a6fa5;
+    padding-left: 7px; /* compensate for border */
+  }
+  .roster-cell.is-approaching,
+  .roster-child.is-approaching {
+    background: rgba(214, 161, 58, 0.12);
+    border-left: 3px solid #d6a13a;
+    padding-left: 7px;
+  }
+  /* Keep hover affordance distinct even when color-coded. */
+  .roster-child.is-planned:hover {
+    background: rgba(74, 111, 165, 0.18);
+    border-color: #4a6fa5;
+  }
+  .roster-child.is-approaching:hover {
+    background: rgba(214, 161, 58, 0.22);
+    border-color: #d6a13a;
+  }
+
+  /* === Roster legend (visual key for color-coded cells) === */
+  .roster-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: -8px 2px 12px;
+    padding: 0 4px;
+  }
+  .roster-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .roster-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .roster-legend-dot.is-approaching { background: #d6a13a; }
+  .roster-legend-dot.is-planned     { background: #4a6fa5; }
+
+  /* === Waitlist "ready to start" highlight === */
+  .entry.is-ready-to-start { box-shadow: inset 3px 0 0 #2d7a3d; }
+  .ready-badge {
+    display: inline-block; background: #e6f4ea; color: #2d7a3d;
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 10px; margin-left: 8px;
+  }
+
+  /* === Roster-cell action popover (small dialog) === */
+  dialog.cell-action-popover {
+    max-width: 320px;
+    width: 320px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    background: var(--surface);
+    color: var(--text);
+  }
+  dialog.cell-action-popover::backdrop {
+    background: rgba(0,0,0,0.25);
+  }
+  .cell-action-body {
+    padding: 18px 20px 14px;
+  }
+  .cell-action-name {
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .cell-action-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+  .cell-action-meta strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .cell-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .cell-action-buttons button {
+    padding: 10px 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cell-action-buttons button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .cell-action-link {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 4px;
+    margin: 0 auto;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline;
+  }
+  .cell-action-link:hover {
+    color: var(--accent-hover);
+    background: none;
+    border: none;
+  }
+  .cell-action-disenroll {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .cell-action-disenroll button {
+    width: 100%;
+    padding: 10px 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cell-action-disenroll button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* === Children directory === */
+  .children-toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    padding: 10px 18px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .children-toolbar input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .children-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .children-row {
+    display: grid;
+    grid-template-columns: 1.4fr 0.9fr 1.1fr 0.9fr 0.7fr;
+    gap: 14px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .children-row:last-child {
+    border-bottom: none;
+  }
+  .children-row:hover {
+    background: var(--surface-soft);
+  }
+  .children-row.is-header {
+    background: var(--surface-soft);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.07em;
+    font-weight: 700;
+    cursor: default;
+  }
+  .children-row.is-header > div[data-sort-key] {
+    cursor: pointer;
+  }
+  .children-row.is-header > div[data-sort-key]:hover {
+    color: var(--text);
+  }
+  .children-row.is-header > div.is-active-sort {
+    color: var(--accent);
+  }
+  .children-row.is-header > div.is-active-sort::after {
+    content: ' \25B2';
+    font-size: 9px;
+    margin-left: 3px;
+  }
+  .children-row.is-header > div.is-active-sort.is-desc::after {
+    content: ' \25BC';
+  }
+  .children-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .children-status {
+    display: inline-block;
+    padding: 2px 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 9px;
+  }
+  .children-status.is-enrolled {
+    background: #e8f3ea;
+    color: var(--success);
+  }
+  .children-status.is-withdrawn {
+    background: #f0ece2;
+    color: var(--text-muted);
+  }
+  .children-empty {
+    padding: 48px 28px;
+    text-align: center;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  /* === Move history list === */
+  .move-history {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .move-event {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .move-event-date {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .move-event-type {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .move-event-type[data-type="new_start"]  { background: #e8f3ea; color: var(--success); }
+  .move-event-type[data-type="transition"] { background: var(--accent-soft); color: var(--accent); }
+  .move-event-type[data-type="withdrawal"] { background: #fdf0f0; color: var(--danger); }
+  .move-event-notes {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-style: italic;
+  }
+  .move-event-delete {
+    color: var(--danger);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+  .move-event-delete:hover {
+    background: var(--danger-soft);
+    border-radius: 4px;
+  }
+
+  /* Larger modal for child details */
+  dialog.modal-wide {
+    max-width: 720px;
+  }
+
   /* === Responsive === */
   @media (max-width: 900px) {
     .entry {
@@ -793,6 +1307,13 @@
       grid-column: 1 / -1;
       justify-content: flex-end;
       align-self: stretch;
+    }
+    .children-row {
+      grid-template-columns: 1.4fr 1fr 0.7fr;
+    }
+    .children-row > div:nth-child(3),
+    .children-row > div:nth-child(4) {
+      display: none;
     }
   }
   @media (max-width: 600px) {
@@ -811,6 +1332,11 @@
     .header-actions button {
       flex: 1;
     }
+    .mode-nav {
+      width: 100%;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
   }
 </style>
 </head>
@@ -822,11 +1348,12 @@
       <h1 id="page-title">Waitlist</h1>
       <div class="subtitle" id="page-subtitle">Manage prospective enrollment by classroom</div>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" id="header-actions">
       <button id="export-csv-btn">Export CSV</button>
       <button id="add-entry-btn" class="primary">+ Add to Waitlist</button>
     </div>
   </div>
+  <nav class="mode-nav" id="mode-nav" aria-label="Mode navigation"></nav>
   <nav class="classroom-nav" id="classroom-nav" aria-label="Classroom navigation"></nav>
 </header>
 
@@ -858,7 +1385,186 @@
       <div id="offered-list" class="entries"></div>
     </section>
   </div>
+
+  <!-- Roster view (Excel-style 12-month grid of enrolled children) -->
+  <div id="roster-view" style="display:none">
+    <div class="roster-toolbar">
+      <label for="roster-start">Starting</label>
+      <input type="month" id="roster-start">
+      <button id="roster-today-btn" type="button">This month</button>
+      <button id="roster-prev-btn" type="button" title="Shift window backward 3 months">&laquo; 3 mo</button>
+      <button id="roster-next-btn" type="button" title="Shift window forward 3 months">3 mo &raquo;</button>
+      <span class="roster-note">Click a child to move them between rooms. Counts go amber at capacity, red over.</span>
+    </div>
+    <div class="roster-legend" aria-label="Color key">
+      <span class="roster-legend-item"><span class="roster-legend-dot is-approaching"></span>Approaching age-out (next 30 days)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-planned"></span>Planned move (next 30 days)</span>
+    </div>
+    <div class="roster-scroll">
+      <div id="roster-grid" class="roster-grid"></div>
+    </div>
+  </div>
+
+  <!-- Children directory -->
+  <div id="children-view" style="display:none">
+    <div class="children-toolbar">
+      <input type="text" id="children-search" placeholder="Search by name...">
+      <select id="children-filter">
+        <option value="all">All children</option>
+        <option value="enrolled" selected>Enrolled only</option>
+        <option value="withdrawn">Withdrawn only</option>
+      </select>
+      <span style="margin-left:auto; font-size:12px; color:var(--text-faint);" id="children-count"></span>
+    </div>
+    <div class="children-table" id="children-table"></div>
+  </div>
 </main>
+
+<!-- Child detail / edit modal -->
+<dialog id="child-modal" class="modal-wide">
+  <form id="child-form" novalidate>
+    <div class="modal-header">
+      <h2 id="child-modal-title">Child Details</h2>
+      <button type="button" class="close-btn" id="close-child-modal-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>Child's name <span class="req">*</span></label>
+          <input type="text" name="name" required autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label>Birthday</label>
+          <input type="date" name="dob">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Parent name</label>
+          <input type="text" name="parentName" autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label>Parent phone</label>
+          <input type="tel" name="parentPhone" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Parent email</label>
+        <input type="email" name="parentEmail" autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label>Notes</label>
+        <textarea name="notes" rows="2"></textarea>
+      </div>
+
+      <div id="child-history-section" style="margin-top:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="margin:0;">Enrollment history</label>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="schedule-move-btn">+ Schedule move</button>
+            <button type="button" class="danger" id="withdraw-btn">Withdraw</button>
+          </div>
+        </div>
+        <div id="child-history-list" class="move-history"></div>
+      </div>
+
+      <!-- Inline schedule-move form (shown after clicking "+ Schedule move") -->
+      <div id="schedule-move-form" style="display:none; margin-top:14px; padding:14px; background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm);">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Type</label>
+            <select name="moveType" id="schedule-move-type" class="form-input">
+              <option value="transition">Transition</option>
+              <option value="new_start">New start</option>
+              <option value="withdrawal">Withdrawal</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Target classroom</label>
+            <select name="moveClassroom" id="schedule-move-classroom" class="form-input"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Effective date</label>
+            <input type="date" id="schedule-move-date">
+          </div>
+          <div class="form-field">
+            <label>Transition week <span class="checkbox-hint">(optional)</span></label>
+            <input type="text" id="schedule-move-week" placeholder="e.g. 2/23-2/27">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Notes <span class="checkbox-hint">(optional)</span></label>
+          <textarea id="schedule-move-notes" rows="2"></textarea>
+        </div>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button type="button" id="schedule-move-cancel-btn">Cancel</button>
+          <button type="button" class="primary" id="schedule-move-save-btn">Save move</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="child-cancel-btn">Cancel</button>
+      <button type="submit" class="primary">Save child</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- "Start child" from waitlist modal -->
+<dialog id="start-child-modal">
+  <form id="start-child-form" novalidate>
+    <div class="modal-header">
+      <h2>Start child from waitlist</h2>
+      <button type="button" class="close-btn" id="close-start-child-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" id="start-child-name-display" style="
+        background: var(--surface-soft); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+        <span style="font-weight:600;" id="start-child-name">—</span>
+        <span style="color:var(--text-muted); font-size:12px;" id="start-child-meta"></span>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Effective start date <span class="req">*</span></label>
+          <input type="date" id="start-child-date" required>
+        </div>
+        <div class="form-field">
+          <label>Target classroom <span class="req">*</span></label>
+          <select id="start-child-classroom" class="form-input"></select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Notes <span class="checkbox-hint">(optional)</span></label>
+        <textarea id="start-child-notes" rows="2"></textarea>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;">
+        This will move the family off the waitlist and into the enrollment roster.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="start-child-cancel-btn">Cancel</button>
+      <button type="submit" class="primary">Start enrollment</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Compact cell-action popover (from roster cell clicks) -->
+<dialog id="cell-action-modal" class="cell-action-popover">
+  <div class="cell-action-body">
+    <div class="cell-action-name" id="cell-action-name">—</div>
+    <div class="cell-action-meta" id="cell-action-meta"></div>
+    <div class="cell-action-buttons">
+      <button type="button" id="cell-action-back-btn" title="Move to the previous classroom on the 1st of next month">&larr; Move Back</button>
+      <button type="button" class="primary" id="cell-action-forward-btn" title="Move to the next classroom on the 1st of next month">Move Forward &rarr;</button>
+    </div>
+    <button type="button" class="cell-action-link" id="cell-action-history-link">View full history &amp; edit</button>
+    <div class="cell-action-disenroll">
+      <button type="button" class="danger" id="cell-action-disenroll-btn" title="Mark this child as withdrawn effective today">Disenroll</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="entry-modal">
   <form id="entry-form" novalidate>
@@ -972,6 +1678,17 @@ const SEED_FLAG_KEY = 'waitlist_seeded_v1';
 const SEED_FLAG_KEY_V2 = 'waitlist_seeded_v2';
 const VIEW_DATE_KEY = 'waitlist_view_date_v1';
 
+// Enrollment Tracker storage keys (alongside the waitlist data, never touch it).
+const ENROLL_CHILDREN_KEY  = 'enrollment_children_v1';
+const ENROLL_MOVES_KEY     = 'enrollment_moves_v1';
+const ENROLL_SEEDED_KEY    = 'enrollment_seeded_v1';
+const ENROLL_CHILDREN_SORT_KEY = 'enrollment_children_sort_v1';
+const ROSTER_START_KEY     = 'enrollment_roster_start_v1';
+const CURRENT_MODE_KEY     = 'enrollment_current_mode_v1';
+
+// Modes for the top-level nav. 'waitlist' preserves all existing behavior.
+const MODES = ['waitlist', 'roster', 'children'];
+
 // Safe storage wrapper. Falls back to in-memory when localStorage is blocked
 // (e.g., sandboxed iframes without `allow-same-origin`). The page still works
 // for the duration of the session; data resets on reload in that mode.
@@ -1007,12 +1724,13 @@ const storage = (() => {
 // Each classroom carries its age range in months. Used both for the displayed
 // age range label and for live classroom assignment based on child's current age.
 const CLASSROOMS = [
-  { id: 'infant_a',      name: 'Infant A',      ageRange: '6 weeks – 9 months', minMonths: 0,  maxMonths: 9  },
-  { id: 'infant_b',      name: 'Infant B',      ageRange: '9 – 15 months',      minMonths: 9,  maxMonths: 15 },
-  { id: 'toddlers',      name: 'Toddlers',      ageRange: '15 – 24 months',     minMonths: 15, maxMonths: 24 },
-  { id: 'twos',          name: 'Twos',          ageRange: '24 – 36 months',     minMonths: 24, maxMonths: 36 },
-  { id: 'preschool_one', name: 'Preschool One', ageRange: '36 – 42 months',     minMonths: 36, maxMonths: 42 },
-  { id: 'prek',          name: 'PreK',          ageRange: '42 months – 5 years',minMonths: 42, maxMonths: 72 }
+  { id: 'infant_a',      name: 'Infant A',      ageRange: '6 weeks – 9 months',  minMonths: 0,  maxMonths: 9,  ratio: '1:4',  capacity: 7  },
+  { id: 'infant_b',      name: 'Infant B',      ageRange: '9 – 15 months',       minMonths: 9,  maxMonths: 15, ratio: '1:5',  capacity: 8  },
+  { id: 'toddlers',      name: 'Toddlers',      ageRange: '15 – 24 months',      minMonths: 15, maxMonths: 24, ratio: '1:6',  capacity: 10 },
+  { id: 'twos',          name: 'Twos',          ageRange: '24 – 36 months',      minMonths: 24, maxMonths: 36, ratio: '1:7',  capacity: 12 },
+  { id: 'preschool_one', name: 'Preschool One', ageRange: '3 – 3.5 years',       minMonths: 36, maxMonths: 42, ratio: '1:9',  capacity: 9  },
+  { id: 'preschool_two', name: 'Preschool Two', ageRange: '3.5 – 4.5 years',     minMonths: 42, maxMonths: 54, ratio: '1:11', capacity: 13 },
+  { id: 'prek',          name: 'PreK',          ageRange: '4.5 – 5 years',       minMonths: 54, maxMonths: 60, ratio: '1:13', capacity: 13 }
 ];
 
 // Resolve a classroom from an age in months. Defaults: too young → Infant A, too old → PreK.
@@ -1156,6 +1874,99 @@ const SEED_ENTRIES_V2 = [
   {"id": "wl_dir_212", "childName": "Julia Little", "childBirthday": "2021-04-26", "classroomId": "prek", "parentName": "Matthew Little", "email": "", "phone": "865-684-3590", "isASAP": false, "preferredStartDate": null, "lastContacted": null, "notes": "", "dateAdded": "2025-08-01T00:00:00Z"}
 ];
 
+// === Enrollment Tracker seed (extracted from Davis Center's Excel spreadsheet) ===
+// Embedded inline so the app stays self-contained (no fetch calls). Loaded on
+// first run only, gated by ENROLL_SEEDED_KEY.
+const ENROLLMENT_SEED = {
+  "baselineDate": "2026-03-01",
+  "children": [
+    {"name": "Scarlett Hall",       "dob": "2025-11-06", "currentClassroomId": "infant_a"},
+    {"name": "Cooper Trovillo",     "dob": "2025-10-14", "currentClassroomId": "infant_a"},
+    {"name": "Lily Antal",          "dob": "2025-09-11", "currentClassroomId": "infant_a"},
+    {"name": "Nellie Freeman",      "dob": "2025-09-01", "currentClassroomId": "infant_a"},
+    {"name": "Joseph Barkley",      "dob": "2025-08-04", "currentClassroomId": "infant_a"},
+    {"name": "Mattly Lay",          "dob": "2025-07-28", "currentClassroomId": "infant_a"},
+    {"name": "Cameron Defur",       "dob": "2025-07-10", "currentClassroomId": "infant_a"},
+    {"name": "Katherine Holbert",   "dob": "2025-05-12", "currentClassroomId": "infant_b"},
+    {"name": "Bonnie Underwood",    "dob": "2025-04-08", "currentClassroomId": "infant_b"},
+    {"name": "Collin Searcy",       "dob": "2025-02-01", "currentClassroomId": "infant_b"},
+    {"name": "Ozzie Lamb",          "dob": "2025-01-15", "currentClassroomId": "infant_b"},
+    {"name": "Josiah Moulden",      "dob": "2024-12-12", "currentClassroomId": "infant_b"},
+    {"name": "Hudson Knight",       "dob": "2024-11-20", "currentClassroomId": "infant_b"},
+    {"name": "Mae McCreary",        "dob": "2024-10-15", "currentClassroomId": "infant_b"},
+    {"name": "Parker Wampler",      "dob": "2024-11-03", "currentClassroomId": "toddlers"},
+    {"name": "Arden Mink",          "dob": "2024-10-14", "currentClassroomId": "toddlers"},
+    {"name": "Maxwell Sorey",       "dob": "2024-08-22", "currentClassroomId": "toddlers"},
+    {"name": "Leo Mirakaj",         "dob": "2024-08-19", "currentClassroomId": "toddlers"},
+    {"name": "Grant Kembel",        "dob": "2024-08-11", "currentClassroomId": "toddlers"},
+    {"name": "Eliza Cloar",         "dob": "2024-05-18", "currentClassroomId": "toddlers"},
+    {"name": "Rhodes Scholten",     "dob": "2024-04-11", "currentClassroomId": "toddlers"},
+    {"name": "Gordon Canning",      "dob": "2024-02-14", "currentClassroomId": "toddlers"},
+    {"name": "Ella Ryan",           "dob": "2024-02-01", "currentClassroomId": "toddlers"},
+    {"name": "Saorise Woodie",      "dob": "2024-02-21", "currentClassroomId": "twos"},
+    {"name": "Deacon Defur",        "dob": "2024-01-16", "currentClassroomId": "twos"},
+    {"name": "Wells Lafitte",       "dob": "2023-09-29", "currentClassroomId": "twos"},
+    {"name": "Theodore Ward",       "dob": "2023-09-13", "currentClassroomId": "twos"},
+    {"name": "Eva Clevenger",       "dob": "2023-09-12", "currentClassroomId": "twos"},
+    {"name": "John Stormer",        "dob": "2023-07-01", "currentClassroomId": "twos"},
+    {"name": "Porter Mixon",        "dob": "2023-06-28", "currentClassroomId": "twos"},
+    {"name": "Mason Miller",        "dob": "2023-06-19", "currentClassroomId": "twos"},
+    {"name": "Connor Myers",        "dob": "2023-06-05", "currentClassroomId": "twos"},
+    {"name": "James Sublett",       "dob": "2023-05-22", "currentClassroomId": "twos"},
+    {"name": "Eleanor Mullins",     "dob": "2023-05-12", "currentClassroomId": "twos"},
+    {"name": "Jamie Newton",        "dob": "2023-02-27", "currentClassroomId": "preschool_one"},
+    {"name": "Mia Dameron",         "dob": "2023-02-10", "currentClassroomId": "preschool_one"},
+    {"name": "Vivian Russell",      "dob": "2023-01-15", "currentClassroomId": "preschool_one"},
+    {"name": "Eva Kembel",          "dob": "2022-11-21", "currentClassroomId": "preschool_one"},
+    {"name": "Andie Howell",        "dob": "2022-10-06", "currentClassroomId": "preschool_one"},
+    {"name": "Marcello Villanueva", "dob": "2022-09-13", "currentClassroomId": "preschool_one"},
+    {"name": "Wesley Trantow",      "dob": "2022-08-20", "currentClassroomId": "preschool_one"},
+    {"name": "Kinsleigh Chance",    "dob": "2022-12-18", "currentClassroomId": "preschool_two"},
+    {"name": "Tucker Trovillo",     "dob": "2022-08-14", "currentClassroomId": "preschool_two"},
+    {"name": "Renna Fetters",       "dob": "2022-08-12", "currentClassroomId": "preschool_two"},
+    {"name": "Miles Ryan",          "dob": "2022-08-05", "currentClassroomId": "preschool_two"},
+    {"name": "Koa Bell",            "dob": "2022-06-29", "currentClassroomId": "preschool_two"},
+    {"name": "Brody Collins",       "dob": "2022-03-02", "currentClassroomId": "preschool_two"},
+    {"name": "Oakley King",         "dob": "2022-02-11", "currentClassroomId": "preschool_two"},
+    {"name": "Thomas Buffkin",      "dob": "2021-12-12", "currentClassroomId": "preschool_two"},
+    {"name": "Olivia Jordan",       "dob": "2021-12-09", "currentClassroomId": "preschool_two"},
+    {"name": "Parker Meyers",       "dob": "2021-11-23", "currentClassroomId": "preschool_two"},
+    {"name": "Evelyn Mixon",        "dob": "2021-10-23", "currentClassroomId": "preschool_two"},
+    {"name": "Houston Mink",        "dob": "2021-09-09", "currentClassroomId": "preschool_two"},
+    {"name": "James Goodridge",     "dob": "2021-08-27", "currentClassroomId": "preschool_two"},
+    {"name": "Luke Saunders Hooie", "dob": "2021-07-26", "currentClassroomId": "preschool_two"},
+    {"name": "Noralee Pagel",       "dob": "2021-07-15", "currentClassroomId": "preschool_two"},
+    {"name": "Rileigh Loveday",     "dob": "2021-07-06", "currentClassroomId": "preschool_two"},
+    {"name": "Amelia Mills",        "dob": "2021-05-05", "currentClassroomId": "preschool_two"},
+    {"name": "Elliott Longmire",    "dob": "2021-02-28", "currentClassroomId": "preschool_two"},
+    {"name": "Levi Antal",          "dob": "2020-12-22", "currentClassroomId": "preschool_two"},
+    {"name": "Jeriah Russell",      "dob": "2020-12-13", "currentClassroomId": "preschool_two"},
+    {"name": "Maelynn Lay",         "dob": "2020-12-11", "currentClassroomId": "preschool_two"},
+    {"name": "Amelia Krouse",       "dob": "2020-12-08", "currentClassroomId": "preschool_two"},
+    {"name": "Jameson Woodie",      "dob": "2020-11-28", "currentClassroomId": "preschool_two"},
+    {"name": "Gibson Grace",        "dob": "2020-10-13", "currentClassroomId": "preschool_two"},
+    {"name": "Asher Reineri",       "dob": null,         "currentClassroomId": null, "transitionOnly": true},
+    {"name": "Ember Pagel",         "dob": null,         "currentClassroomId": null, "transitionOnly": true},
+    {"name": "Gemma West",          "dob": null,         "currentClassroomId": null, "transitionOnly": true},
+    {"name": "Jaime Newton",        "dob": null,         "currentClassroomId": null, "transitionOnly": true},
+    {"name": "Ivy Bishop",          "dob": null,         "currentClassroomId": null, "transitionOnly": true}
+  ],
+  "transitions": [
+    {"childName": "Asher Reineri",    "targetClassroomId": "infant_a",      "type": "withdrawal", "transitionWeek": null,        "effectiveDate": "2026-02-27"},
+    {"childName": "Nellie Freeman",   "targetClassroomId": "infant_a",      "type": "new_start",  "transitionWeek": null,        "effectiveDate": "2026-03-02"},
+    {"childName": "Mattly Lay",       "targetClassroomId": "infant_a",      "type": "new_start",  "transitionWeek": null,        "effectiveDate": "2026-03-02"},
+    {"childName": "Bonnie Underwood", "targetClassroomId": "infant_a",      "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Ember Pagel",      "targetClassroomId": "infant_b",      "type": "withdrawal", "transitionWeek": null,        "effectiveDate": "2026-02-20"},
+    {"childName": "Gemma West",       "targetClassroomId": "toddlers",      "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Deacon Defur",     "targetClassroomId": "toddlers",      "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Jaime Newton",     "targetClassroomId": "twos",          "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Ivy Bishop",       "targetClassroomId": "preschool_one", "type": "new_start",  "transitionWeek": null,        "effectiveDate": "2026-03-02"},
+    {"childName": "Tucker Trovillo",  "targetClassroomId": "preschool_one", "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Miles Ryan",       "targetClassroomId": "preschool_one", "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"},
+    {"childName": "Renna Fetters",    "targetClassroomId": "preschool_one", "type": "transition", "transitionWeek": "2/23-2/27", "effectiveDate": "2026-03-02"}
+  ]
+};
+
 function seedIfNeeded() {
   // Each batch is independently flagged so existing users get new batches merged in
   // without re-importing batches they already have.
@@ -1178,6 +1989,126 @@ function seedIfNeeded() {
   }
 }
 
+// First-run seed of enrolled children + their pre-scheduled move events.
+// Runs only when ENROLL_SEEDED_KEY is absent. After this, the flag is set so we
+// never re-seed (avoids clobbering admin edits on subsequent loads).
+function seedEnrollmentIfNeeded() {
+  if (storage.get(ENROLL_SEEDED_KEY)) return;
+  const nowIso = new Date().toISOString();
+  const baseline = ENROLLMENT_SEED.baselineDate || todayIso();
+  // Build a name → child id map so we can wire up transitions.
+  const nameToId = {};
+
+  // Add roster children. Skip transition_only entries — they're created when
+  // we encounter them in the transitions loop below.
+  for (const c of ENROLLMENT_SEED.children) {
+    if (c.transitionOnly) continue;
+    const id = enrollUuid('child');
+    nameToId[c.name] = id;
+    enrollChildren.push({
+      id,
+      name: c.name,
+      dob: c.dob,
+      parentName: '',
+      parentPhone: '',
+      parentEmail: '',
+      notes: '',
+      status: 'enrolled',
+      currentClassroomId: c.currentClassroomId,
+      createdAt: nowIso
+    });
+    // Implicit new_start move event so replaying from any earlier date works.
+    // The spreadsheet doesn't capture when each child originally started, so
+    // we use the child's DOB as a proxy (no one can be in a room before they
+    // were born). For roster views going forward from baseline, this is fine.
+    const seedEffective = c.dob || baseline;
+    enrollMoves.push({
+      id: enrollUuid('move'),
+      childId: id,
+      type: 'new_start',
+      targetClassroomId: c.currentClassroomId,
+      effectiveDate: seedEffective,
+      transitionWeek: null,
+      notes: 'Initial roster (seeded from spreadsheet — exact start date unknown)',
+      createdAt: nowIso,
+      approved: true
+    });
+  }
+
+  // Add transitions. Some reference children not in the roster (e.g. new starts
+  // or kids who've already withdrawn) — for those, create a placeholder child
+  // record so we have something to attach the move event to.
+  for (const t of ENROLLMENT_SEED.transitions) {
+    let childId = nameToId[t.childName];
+    if (!childId) {
+      childId = enrollUuid('child');
+      nameToId[t.childName] = childId;
+      // Status depends on the move type. A "transition_only" child with a
+      // 'withdrawal' event has already left; one with 'new_start' or
+      // 'transition' is about to arrive.
+      const status = t.type === 'withdrawal' ? 'withdrawn' : 'enrolled';
+      enrollChildren.push({
+        id: childId,
+        name: t.childName,
+        dob: null,
+        parentName: '',
+        parentPhone: '',
+        parentEmail: '',
+        notes: 'Imported from spreadsheet transition list — no DOB on file',
+        status,
+        currentClassroomId: t.type === 'withdrawal' ? null : t.targetClassroomId,
+        createdAt: nowIso
+      });
+    }
+    enrollMoves.push({
+      id: enrollUuid('move'),
+      childId,
+      type: t.type,
+      targetClassroomId: t.type === 'withdrawal' ? null : t.targetClassroomId,
+      effectiveDate: t.effectiveDate,
+      transitionWeek: t.transitionWeek,
+      notes: '',
+      createdAt: nowIso,
+      approved: true
+    });
+  }
+
+  saveEnrollChildren();
+  saveEnrollMoves();
+  storage.set(ENROLL_SEEDED_KEY, nowIso);
+  // Recompute currentClassroomId for each child from move history (handles
+  // transitions and withdrawals that happen before today).
+  refreshAllCachedClassrooms();
+}
+
+// Recompute the cached `currentClassroomId` for every child by replaying their
+// move events up through today. Call after batch changes.
+function refreshAllCachedClassrooms() {
+  const today = todayIso();
+  let changed = false;
+  for (const child of enrollChildren) {
+    const cid = getClassroomForChildOnDate(child, today);
+    // null when withdrawn or not yet started.
+    if (child.currentClassroomId !== cid) {
+      child.currentClassroomId = cid;
+      changed = true;
+    }
+    // Status reflects the latest event type.
+    const events = getMoveEventsForChild(child.id);
+    if (events.length) {
+      const lastBeforeToday = events.filter(e => e.effectiveDate <= today).pop();
+      const desiredStatus = lastBeforeToday && lastBeforeToday.type === 'withdrawal'
+        ? 'withdrawn'
+        : 'enrolled';
+      if (child.status !== desiredStatus) {
+        child.status = desiredStatus;
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveEnrollChildren();
+}
+
 let entries = loadEntries();
 let sortState = loadSortState();
 let editingId = null;
@@ -1186,6 +2117,26 @@ let editingId = null;
 // Affects classroom grouping and age display on the main waitlist; the offered
 // view always uses today.
 let viewDate = null; // set after todayIso is callable, in init()
+
+/* === Enrollment Tracker state === */
+// Children enrolled (or withdrawn) at the daycare. Distinct from waitlist entries.
+let enrollChildren = loadEnrollChildren();
+// Move events: new_start, transition, withdrawal. Replayed to compute who's
+// in each classroom on any given date.
+let enrollMoves = loadEnrollMoves();
+// Sort/filter state for the Children directory.
+let childrenSort = loadChildrenSort();
+let childrenSearch = '';
+let childrenFilter = 'enrolled';
+// Currently editing child (in child-modal). null when adding a new child.
+let editingChildId = null;
+// Roster start month (first column). Stored as 'YYYY-MM'.
+let rosterStartMonth = null; // set in init()
+// Top-level mode: 'waitlist' | 'roster' | 'children'.
+let currentMode = storage.get(CURRENT_MODE_KEY) || 'waitlist';
+if (!MODES.includes(currentMode)) currentMode = 'waitlist';
+// Currently focused child id in the cell-action popover (set when opened).
+let cellActionChildId = null;
 
 /* === Storage === */
 function loadEntries() {
@@ -1203,8 +2154,34 @@ function saveSortState() {
   try { storage.set(SORT_STATE_KEY, JSON.stringify(sortState)); } catch {}
 }
 
+/* === Enrollment Tracker storage === */
+function loadEnrollChildren() {
+  try { return JSON.parse(storage.get(ENROLL_CHILDREN_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveEnrollChildren() {
+  try { storage.set(ENROLL_CHILDREN_KEY, JSON.stringify(enrollChildren)); } catch {}
+}
+function loadEnrollMoves() {
+  try { return JSON.parse(storage.get(ENROLL_MOVES_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveEnrollMoves() {
+  try { storage.set(ENROLL_MOVES_KEY, JSON.stringify(enrollMoves)); } catch {}
+}
+function loadChildrenSort() {
+  try { return JSON.parse(storage.get(ENROLL_CHILDREN_SORT_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveChildrenSort() {
+  try { storage.set(ENROLL_CHILDREN_SORT_KEY, JSON.stringify(childrenSort)); } catch {}
+}
+
 function uuid() {
   return 'wl_' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
+}
+function enrollUuid(prefix) {
+  return (prefix || 'en') + '_' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 }
 
 /* === Date / age math === */
@@ -1650,8 +2627,15 @@ function wireSectionEventHandlers(container) {
       else if (action === 'placed') confirmMarkPlaced(id);
       else if (action === 'send-back') sendBackToWaitlist(id);
       else if (action === 'toggle-contact') toggleContact(btn);
+      else if (action === 'start-child') openStartChildModal(id);
     });
   });
+
+  // Inject the v2 "Start child" button into each waitlist row. (Defined later
+  // in the script; safe because event listeners only fire after init.)
+  if (typeof injectStartChildButtons === 'function') {
+    injectStartChildButtons();
+  }
 }
 
 function renderEntry(entry) {
@@ -1660,6 +2644,22 @@ function renderEntry(entry) {
   const ageAtStart = getAgeAtStartMonths(entry, refDate);
   const isPlanning = viewDate && viewDate !== todayIso();
   const ageLabel = isPlanning ? `on ${formatDate(viewDate)}` : 'now';
+
+  // "Ready to start" highlight: active entries whose preferred start is within
+  // the next 30 days (or ASAP). Visual nudge for the director to convert these
+  // to enrolled children. We compute against today (not viewDate) — the
+  // imminence question is real-time, regardless of how the page is being viewed.
+  const todayStr = todayIso();
+  const horizonStr = addMonthsIso(todayStr, 1);
+  const isActive = (entry.status || 'active') === 'active';
+  const startSoon = entry.preferredStartDate &&
+                    entry.preferredStartDate >= todayStr &&
+                    entry.preferredStartDate <= horizonStr;
+  const isReadyToStart = isActive && (entry.isASAP || startSoon);
+  const readyClass = isReadyToStart ? ' is-ready-to-start' : '';
+  const readyBadge = isReadyToStart
+    ? ' <span class="ready-badge" title="Preferred start within 30 days">Ready</span>'
+    : '';
 
   // Age column logic:
   //   - If preferred start is in the future → show age at start as primary,
@@ -1717,14 +2717,14 @@ function renderEntry(entry) {
         : '<span style="color:var(--text-faint)">—</span>');
 
   return `
-    <div class="entry" title="${escapeHtml(rowTitle)}">
+    <div class="entry${readyClass}" title="${escapeHtml(rowTitle)}">
       <div class="entry-col">
         <div class="entry-primary">${escapeHtml(formatDate(entry.dateAdded.slice(0,10)))}</div>
         <div class="entry-meta ${contacted.cls}" ${contacted.dateLabel ? `title="${escapeHtml(contacted.dateLabel)}"` : ''}>${escapeHtml(contactedDisplay)}</div>
       </div>
 
       <div class="entry-col">
-        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${notesIcon}</div>
+        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${readyBadge}${notesIcon}</div>
         <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${entry.touredOn ? ` · <span style="color:var(--success);">Toured ${escapeHtml(formatDate(entry.touredOn))}</span>` : ''}</div>
       </div>
 
@@ -2126,9 +3126,11 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   });
 
-  // Wire global buttons
-  document.getElementById('add-entry-btn').addEventListener('click', openAddModal);
-  document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+  // The Add to Waitlist / Export CSV buttons are re-rendered every time the
+  // user switches into the Waitlist mode (so we can swap to mode-specific
+  // actions like "+ Add Child" elsewhere). The initial wire-up happens via
+  // updateHeaderActions(), called from render(). The static buttons in the
+  // HTML are only used for the first paint and are then replaced.
   document.getElementById('entry-form').addEventListener('submit', handleSubmit);
   document.getElementById('asap-checkbox').addEventListener('change', togglePreferredDate);
   document.getElementById('cancel-btn').addEventListener('click', closeModal);
@@ -2143,6 +3145,112 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.tagName === 'DIALOG') closeModal();
   });
 
+  // === Enrollment Tracker — wire new modals + controls ===
+  // Child modal (add/edit)
+  document.getElementById('child-form').addEventListener('submit', handleChildFormSubmit);
+  document.getElementById('close-child-modal-btn').addEventListener('click', closeChildModal);
+  document.getElementById('child-cancel-btn').addEventListener('click', closeChildModal);
+  document.getElementById('child-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeChildModal();
+  });
+  document.getElementById('schedule-move-btn').addEventListener('click', openScheduleMoveForm);
+  document.getElementById('schedule-move-cancel-btn').addEventListener('click', () => {
+    document.getElementById('schedule-move-form').style.display = 'none';
+  });
+  document.getElementById('schedule-move-save-btn').addEventListener('click', saveScheduleMove);
+  document.getElementById('withdraw-btn').addEventListener('click', withdrawCurrentChild);
+  // Withdrawal type hides the classroom select since target is null.
+  document.getElementById('schedule-move-type').addEventListener('change', e => {
+    const isWithdrawal = e.target.value === 'withdrawal';
+    document.getElementById('schedule-move-classroom').disabled = isWithdrawal;
+  });
+
+  // Start-from-waitlist modal
+  document.getElementById('start-child-form').addEventListener('submit', handleStartChildSubmit);
+  document.getElementById('close-start-child-btn').addEventListener('click', closeStartChildModal);
+  document.getElementById('start-child-cancel-btn').addEventListener('click', closeStartChildModal);
+  document.getElementById('start-child-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeStartChildModal();
+  });
+  // When the start date changes, suggest a classroom based on age at that date.
+  document.getElementById('start-child-date').addEventListener('change', e => {
+    const modal = document.getElementById('start-child-modal');
+    const entry = entries.find(x => x.id === modal.dataset.waitlistId);
+    if (!entry) return;
+    document.getElementById('start-child-classroom').value =
+      getClassroomForEntry(entry, e.target.value);
+  });
+
+  // Cell-action popover (Roster cell clicks → compact move dialog)
+  document.getElementById('cell-action-back-btn').addEventListener('click', () => {
+    applyCellActionMove(-1);
+  });
+  document.getElementById('cell-action-forward-btn').addEventListener('click', () => {
+    applyCellActionMove(1);
+  });
+  document.getElementById('cell-action-history-link').addEventListener('click', () => {
+    const childId = cellActionChildId;
+    closeCellActionPopover();
+    if (childId) openChildModal(childId);
+  });
+  document.getElementById('cell-action-disenroll-btn').addEventListener('click', () => {
+    const childId = cellActionChildId;
+    if (!childId) return;
+    if (disenrollChild(childId)) {
+      closeCellActionPopover();
+      refreshAllCachedClassrooms();
+      render();
+    }
+  });
+  // Backdrop click closes the popover.
+  document.getElementById('cell-action-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeCellActionPopover();
+  });
+  // Esc / dialog "cancel" event also clears the focused child id.
+  document.getElementById('cell-action-modal').addEventListener('close', () => {
+    cellActionChildId = null;
+  });
+
+  // Roster toolbar.
+  rosterStartMonth = storage.get(ROSTER_START_KEY) || firstOfMonthToMonth(firstOfMonth(todayIso()));
+  const rosterStartInput = document.getElementById('roster-start');
+  if (rosterStartInput) {
+    rosterStartInput.value = rosterStartMonth;
+    rosterStartInput.addEventListener('change', e => {
+      rosterStartMonth = e.target.value || firstOfMonthToMonth(firstOfMonth(todayIso()));
+      storage.set(ROSTER_START_KEY, rosterStartMonth);
+      if (currentMode === 'roster') renderRosterView();
+    });
+  }
+  document.getElementById('roster-today-btn').addEventListener('click', () => {
+    rosterStartMonth = firstOfMonthToMonth(firstOfMonth(todayIso()));
+    storage.set(ROSTER_START_KEY, rosterStartMonth);
+    rosterStartInput.value = rosterStartMonth;
+    renderRosterView();
+  });
+  document.getElementById('roster-prev-btn').addEventListener('click', () => {
+    rosterStartMonth = firstOfMonthToMonth(addMonthsIso(monthToFirstOfMonth(rosterStartMonth), -3));
+    storage.set(ROSTER_START_KEY, rosterStartMonth);
+    rosterStartInput.value = rosterStartMonth;
+    renderRosterView();
+  });
+  document.getElementById('roster-next-btn').addEventListener('click', () => {
+    rosterStartMonth = firstOfMonthToMonth(addMonthsIso(monthToFirstOfMonth(rosterStartMonth), 3));
+    storage.set(ROSTER_START_KEY, rosterStartMonth);
+    rosterStartInput.value = rosterStartMonth;
+    renderRosterView();
+  });
+
+  // Children directory toolbar.
+  document.getElementById('children-search').addEventListener('input', e => {
+    childrenSearch = e.target.value;
+    if (currentMode === 'children') renderChildrenView();
+  });
+  document.getElementById('children-filter').addEventListener('change', e => {
+    childrenFilter = e.target.value;
+    if (currentMode === 'children') renderChildrenView();
+  });
+
   // Show warning banner when running in a sandboxed iframe (no localStorage)
   if (!storage.isAvailable()) {
     const warning = document.getElementById('storage-warning');
@@ -2153,7 +3261,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => { render(); });
 
   seedIfNeeded();
+  seedEnrollmentIfNeeded();
+  // Refresh cached classrooms — handles existing data from prior loads where
+  // transitions may have happened in the meantime.
+  refreshAllCachedClassrooms();
   render();
+  // The waitlist view re-renders its classroom sections via render(); for the
+  // very first paint AND every subsequent re-render of the waitlist, we patch
+  // in the Start-child button via injectStartChildButtons().
+  // The cleanest hook: re-call after render() — but render() returns
+  // synchronously, so it's safe.
+  injectStartChildButtons();
 });
 
 function updateTimeTravelBar() {
@@ -2178,10 +3296,874 @@ function updateTimeTravelBar() {
   note.textContent = `Viewing ${span} ${direction} — classrooms reflect ages on ${formatDate(viewDate)}.`;
 }
 
+/* =============================================================
+   Enrollment Tracker — added in v2
+   =============================================================
+   The Enrollment Tracker replaces the director's Excel sheet. It tracks
+   children currently enrolled at the center, plus scheduled future moves
+   (transitions between rooms, new starts, withdrawals). All state lives
+   in localStorage under the `enrollment_*` keys; the waitlist data is
+   untouched.
+
+   Data model:
+     enrollChildren  — array of { id, name, dob, parent*, status, ... }
+     enrollMoves     — array of { id, childId, type, targetClassroomId, effectiveDate, ... }
+
+   The child's room is computed by replaying their move events up to a
+   target date — there's no single "currentRoom" field of record (the
+   `currentClassroomId` on a child is a cache, refreshed on data changes).
+   ============================================================= */
+
+/* === Mode (top-level nav) === */
+function setMode(mode) {
+  if (!MODES.includes(mode)) return;
+  currentMode = mode;
+  storage.set(CURRENT_MODE_KEY, mode);
+  render();
+}
+
+function renderModeNav() {
+  const nav = document.getElementById('mode-nav');
+  if (!nav) return;
+  const tabs = [
+    { id: 'waitlist', label: 'Waitlist',  count: entries.filter(e => (e.status || 'active') === 'active').length, countLabel: 'on waitlist' },
+    { id: 'roster',   label: 'Roster',    count: enrollChildren.filter(c => c.status === 'enrolled').length, countLabel: 'enrolled' },
+    { id: 'children', label: 'Children',  count: enrollChildren.length, countLabel: 'children' }
+  ];
+  nav.innerHTML = tabs.map(t => `
+    <button class="mode-tab ${currentMode === t.id ? 'is-active' : ''}"
+            data-mode="${t.id}">
+      <span>${escapeHtml(t.label)}</span>
+      ${t.count > 0 ? `<span class="mode-badge">${t.count}</span>` : ''}
+    </button>
+  `).join('');
+  nav.querySelectorAll('[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+}
+
+/* === Date helpers for enrollment === */
+// First day of the month after `iso` (or after today if iso is null).
+function firstOfNextMonth(iso) {
+  const ref = iso ? new Date(iso + 'T00:00:00') : new Date();
+  const d = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  return isoFromDate(d);
+}
+
+// Add N months to an ISO date, clamping the day-of-month if the target month
+// is shorter. Used to compute when a child crosses an age boundary.
+function addMonthsIso(iso, months) {
+  if (!iso) return null;
+  const d = new Date(iso + 'T00:00:00');
+  const targetMonth = d.getMonth() + months;
+  const target = new Date(d.getFullYear(), targetMonth, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(d.getDate(), lastDay));
+  return isoFromDate(target);
+}
+
+function isoFromDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function monthLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
+// ISO of the first day of the month containing `iso`.
+function firstOfMonth(iso) {
+  const d = iso ? new Date(iso + 'T00:00:00') : new Date();
+  return isoFromDate(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+// Daycare currently uses YYYY-MM (HTML5 month input) for the roster window.
+function monthToFirstOfMonth(ym) {
+  if (!ym) return firstOfMonth(todayIso());
+  return ym + '-01';
+}
+function firstOfMonthToMonth(iso) {
+  return iso ? iso.slice(0, 7) : '';
+}
+
+/* === Move event queries === */
+function getMoveEventsForChild(childId) {
+  return enrollMoves
+    .filter(m => m.childId === childId)
+    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+}
+
+// Resolve a child's classroom on a given date by replaying move events.
+// Returns null if the child has withdrawn before `date` OR hasn't started yet
+// (i.e. no new_start event with effectiveDate <= date).
+function getClassroomForChildOnDate(child, date) {
+  if (!child) return null;
+  const events = getMoveEventsForChild(child.id);
+  // The "most recent event whose effectiveDate <= date" determines the state.
+  // Iterate chronologically and let later events overwrite.
+  let classroom = null;
+  let hasStarted = false;
+  for (const e of events) {
+    if (e.effectiveDate > date) break;
+    if (e.type === 'new_start') {
+      hasStarted = true;
+      classroom = e.targetClassroomId;
+    } else if (e.type === 'transition') {
+      // A transition implies the child has started, even if there's no
+      // explicit new_start event (e.g. for seeded roster kids).
+      hasStarted = true;
+      classroom = e.targetClassroomId;
+    } else if (e.type === 'withdrawal') {
+      classroom = null; // withdrawn — not in any room
+      // Leave hasStarted true; withdrawn children should not appear in roster
+      // anyway, but if they do appear in history it's because they once did.
+    }
+  }
+  if (!hasStarted) return null;
+  return classroom;
+}
+
+// Roster for a classroom on a given date: list of enrolled children whose
+// resolved classroom matches.
+function getRosterForClassroomOnDate(classroomId, date) {
+  return enrollChildren
+    .filter(c => getClassroomForChildOnDate(c, date) === classroomId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* === Roster cell state (for color coding) === */
+// Compute whether a child should be highlighted in TODAY's cell. Three states:
+//   - 'planned'     — a transition or withdrawal is scheduled in the next 30 days
+//   - 'approaching' — child will cross their classroom's maxMonths boundary
+//                     within the next 30 days, and nothing is already scheduled
+//   - null          — no special styling
+// `today` and `horizon` are passed in so the caller computes them once per render.
+function computeRosterCellState(child, classroomId, today, horizon) {
+  if (!child) return null;
+  const events = getMoveEventsForChild(child.id);
+  // Planned: any move event of type transition/withdrawal between today and horizon.
+  const plannedMove = events.find(e =>
+    (e.type === 'transition' || e.type === 'withdrawal') &&
+    e.effectiveDate >= today && e.effectiveDate <= horizon
+  );
+  if (plannedMove) return 'planned';
+  // Approaching: child must be in this classroom right now AND have a dob.
+  if (!child.dob) return null;
+  const classroom = CLASSROOMS.find(c => c.id === classroomId);
+  if (!classroom) return null;
+  const ageUpDate = addMonthsIso(child.dob, classroom.maxMonths);
+  if (!ageUpDate) return null;
+  // "Will age past in the next 30 days" — strictly future-facing. Kids who are
+  // already past the boundary (overdue) also get flagged so the director sees
+  // them, but kids whose age-up is more than 30 days out are not yet urgent.
+  if (ageUpDate <= horizon) return 'approaching';
+  return null;
+}
+
+/* === Roster view === */
+function renderRosterView() {
+  // Hide other views; show roster.
+  document.getElementById('main-view').style.display = 'none';
+  document.getElementById('offered-view').style.display = 'none';
+  document.getElementById('children-view').style.display = 'none';
+  document.getElementById('roster-view').style.display = '';
+
+  // Sync the month input with state.
+  const startInput = document.getElementById('roster-start');
+  if (startInput && startInput.value !== rosterStartMonth) {
+    startInput.value = rosterStartMonth;
+  }
+
+  // Build the grid: 12 months starting at rosterStartMonth.
+  const startIso = monthToFirstOfMonth(rosterStartMonth);
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    months.push(addMonthsIso(startIso, i));
+  }
+  // Compute "today" date once — used for the 30-day cell-state lookahead.
+  const todayIsoStr = todayIso();
+  const thisMonthIso = firstOfMonth(todayIsoStr);
+  const horizonIso = addMonthsIso(todayIsoStr, 1); // ~30 day window
+
+  // The cell-state classes (planned / approaching) only apply to TODAY'S column
+  // (or the leftmost column if today isn't in the visible window). This way the
+  // color coding says "this child needs attention right now", not "every cell
+  // forever."
+  const todayColumnIdx = months.findIndex(m => m === thisMonthIso);
+  const highlightColumnIdx = todayColumnIdx === -1 ? 0 : todayColumnIdx;
+
+  const grid = document.getElementById('roster-grid');
+  // CSS grid-template-columns: first column = label, then one per month.
+  grid.style.gridTemplateColumns = `minmax(160px, 1.4fr) repeat(${months.length}, minmax(130px, 1fr))`;
+  let html = '';
+
+  // Header row: corner + month labels.
+  html += `<div class="roster-cell is-header is-corner">Classroom</div>`;
+  for (const m of months) {
+    const isToday = m === thisMonthIso;
+    html += `<div class="roster-cell is-header ${isToday ? 'is-today' : ''}">${escapeHtml(monthLabel(m))}</div>`;
+  }
+
+  // One row per classroom.
+  for (const classroom of CLASSROOMS) {
+    html += `
+      <div class="roster-cell is-classroom-label" data-classroom="${classroom.id}">
+        <div class="roster-classroom-name">${escapeHtml(classroom.name)}</div>
+        <div class="roster-classroom-meta">${escapeHtml(classroom.ageRange)}</div>
+        <div class="roster-classroom-meta">Capacity ${classroom.capacity} · Ratio ${escapeHtml(classroom.ratio)}</div>
+      </div>
+    `;
+    for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
+      const m = months[monthIdx];
+      // Use the first of the month as the reference date — kids are in the
+      // room they belong to AT THE START of the month.
+      const roster = getRosterForClassroomOnDate(classroom.id, m);
+      const count = roster.length;
+      let countCls = '';
+      if (count > classroom.capacity) countCls = 'is-over-capacity';
+      else if (count === classroom.capacity) countCls = 'is-at-capacity';
+
+      // Only the "today" column gets the planned/approaching cell-state classes.
+      const isHighlightColumn = monthIdx === highlightColumnIdx;
+
+      const kidsHtml = roster.length === 0
+        ? '<div class="roster-empty-classroom">empty</div>'
+        : roster.map(child => {
+            const ageMonths = diffMonths(child.dob, m);
+            const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
+            // Per-child cell state — only computed for the highlight column.
+            let cellStateCls = '';
+            if (isHighlightColumn) {
+              const state = computeRosterCellState(child, classroom.id, todayIsoStr, horizonIso);
+              if (state === 'planned')          cellStateCls = 'is-planned';
+              else if (state === 'approaching') cellStateCls = 'is-approaching';
+            }
+            return `
+              <button class="roster-child ${cellStateCls}" data-child-id="${child.id}" type="button"
+                      title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
+                <span class="roster-child-name">${escapeHtml(child.name)}</span>
+                <span class="roster-child-age">${escapeHtml(ageStr)}</span>
+              </button>
+            `;
+          }).join('');
+      html += `
+        <div class="roster-cell">
+          ${kidsHtml}
+          <div class="roster-count ${countCls}">${count} / ${classroom.capacity}</div>
+        </div>
+      `;
+    }
+  }
+
+  grid.innerHTML = html;
+
+  // Wire child buttons → open compact cell-action popover.
+  grid.querySelectorAll('[data-child-id]').forEach(btn => {
+    btn.addEventListener('click', () => openCellActionPopover(btn.dataset.childId));
+  });
+}
+
+/* === Cell-action popover (click child in Roster → move forward / back) === */
+// Opens a small dialog showing the child's name, current room, age, plus two
+// adjacent-room move buttons. Persists via the normal saveEnrollMoves() path.
+function openCellActionPopover(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return;
+  cellActionChildId = childId;
+
+  const today = todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, today);
+  const currentRoom = currentRoomId ? CLASSROOMS.find(c => c.id === currentRoomId) : null;
+  const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
+  const prevRoom = currentIdx > 0 ? CLASSROOMS[currentIdx - 1] : null;
+  const nextRoom = (currentIdx !== -1 && currentIdx < CLASSROOMS.length - 1) ? CLASSROOMS[currentIdx + 1] : null;
+
+  const ageStr = child.dob ? formatAge(diffMonths(child.dob, today)) : 'age unknown';
+  const roomLabel = currentRoom ? currentRoom.name : 'Not in a room';
+
+  document.getElementById('cell-action-name').textContent = child.name;
+  document.getElementById('cell-action-meta').innerHTML = `
+    <strong>${escapeHtml(roomLabel)}</strong> &middot; ${escapeHtml(ageStr)}
+  `;
+
+  const backBtn = document.getElementById('cell-action-back-btn');
+  const forwardBtn = document.getElementById('cell-action-forward-btn');
+
+  // Move Back button — disabled if already in infant_a (or not in any room).
+  backBtn.disabled = !prevRoom || currentRoomId === 'infant_a';
+  backBtn.title = prevRoom
+    ? `Move to ${prevRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    : 'Already in the youngest classroom';
+
+  // Move Forward button — disabled if already in prek (or not in any room).
+  forwardBtn.disabled = !nextRoom || currentRoomId === 'prek';
+  forwardBtn.title = nextRoom
+    ? `Move to ${nextRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    : 'Already in the oldest classroom';
+
+  // Disenroll button — defensive disable if the child is already withdrawn
+  // (shouldn't happen since withdrawn kids aren't in the roster, but be safe).
+  const disenrollBtn = document.getElementById('cell-action-disenroll-btn');
+  disenrollBtn.disabled = child.status === 'withdrawn';
+  disenrollBtn.title = child.status === 'withdrawn'
+    ? 'Child is already withdrawn'
+    : `Mark ${child.name} as withdrawn effective today`;
+
+  document.getElementById('cell-action-modal').showModal();
+}
+
+function closeCellActionPopover() {
+  const dlg = document.getElementById('cell-action-modal');
+  if (dlg.open) dlg.close();
+  cellActionChildId = null;
+}
+
+// Direction: -1 for back, +1 for forward.
+function applyCellActionMove(direction) {
+  if (!cellActionChildId) return;
+  const child = enrollChildren.find(c => c.id === cellActionChildId);
+  if (!child) return;
+  const today = todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, today);
+  const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
+  if (currentIdx === -1) return;
+  const targetRoom = CLASSROOMS[currentIdx + direction];
+  if (!targetRoom) return;
+  // Disabled-state guards (defense in depth, in case the button somehow fired).
+  if (direction === -1 && currentRoomId === 'infant_a') return;
+  if (direction ===  1 && currentRoomId === 'prek')     return;
+
+  const effectiveDate = firstOfNextMonth(today);
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId: child.id,
+    type: 'transition',
+    targetClassroomId: targetRoom.id,
+    effectiveDate,
+    transitionWeek: null,
+    notes: '',
+    createdAt: new Date().toISOString(),
+    approved: true
+  });
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  closeCellActionPopover();
+  // Re-render — cell color coding will update automatically.
+  render();
+}
+
+/* === Children directory === */
+function renderChildrenView() {
+  document.getElementById('main-view').style.display = 'none';
+  document.getElementById('offered-view').style.display = 'none';
+  document.getElementById('roster-view').style.display = 'none';
+  document.getElementById('children-view').style.display = '';
+
+  // Apply current filter + search.
+  const q = (childrenSearch || '').toLowerCase().trim();
+  const today = todayIso();
+  let rows = enrollChildren.filter(c => {
+    if (childrenFilter === 'enrolled'  && c.status !== 'enrolled')  return false;
+    if (childrenFilter === 'withdrawn' && c.status !== 'withdrawn') return false;
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // Sort.
+  const sortKey = childrenSort.key || 'name';
+  const sortDir = childrenSort.dir || 'asc';
+  rows.sort((a, b) => {
+    let av, bv;
+    if (sortKey === 'name') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+    else if (sortKey === 'age') {
+      av = a.dob ? diffMonths(a.dob, today) : 99999;
+      bv = b.dob ? diffMonths(b.dob, today) : 99999;
+    } else if (sortKey === 'classroom') {
+      const ai = CLASSROOMS.findIndex(c => c.id === a.currentClassroomId);
+      const bi = CLASSROOMS.findIndex(c => c.id === b.currentClassroomId);
+      av = ai === -1 ? 99 : ai;
+      bv = bi === -1 ? 99 : bi;
+    } else if (sortKey === 'enrolled') {
+      av = a.createdAt || '';
+      bv = b.createdAt || '';
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const countEl = document.getElementById('children-count');
+  if (countEl) {
+    countEl.textContent = `${rows.length} of ${enrollChildren.length}`;
+  }
+
+  const headerCell = (key, label) => {
+    const isActive = sortKey === key;
+    const dirCls = isActive && sortDir === 'desc' ? 'is-desc' : '';
+    return `<div data-sort-key="${key}" class="${isActive ? 'is-active-sort ' + dirCls : ''}">${escapeHtml(label)}</div>`;
+  };
+
+  let html = `
+    <div class="children-row is-header">
+      ${headerCell('name', 'Name')}
+      ${headerCell('age', 'Age')}
+      ${headerCell('classroom', 'Classroom')}
+      ${headerCell('enrolled', 'Added')}
+      <div>Status</div>
+    </div>
+  `;
+  if (rows.length === 0) {
+    html += `<div class="children-empty">No children match your filter.</div>`;
+  } else {
+    html += rows.map(c => {
+      const ageMonths = c.dob ? diffMonths(c.dob, today) : null;
+      const classroom = c.currentClassroomId
+        ? CLASSROOMS.find(x => x.id === c.currentClassroomId)
+        : null;
+      const enrolledLabel = c.createdAt ? formatDate(c.createdAt.slice(0,10)) : '—';
+      return `
+        <div class="children-row" data-child-id="${c.id}">
+          <div class="children-name">${escapeHtml(c.name)}</div>
+          <div>${ageMonths !== null ? escapeHtml(formatAge(ageMonths)) : '<span style="color:var(--text-faint)">—</span>'}</div>
+          <div>${classroom ? escapeHtml(classroom.name) : '<span style="color:var(--text-faint)">—</span>'}</div>
+          <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(enrolledLabel)}</div>
+          <div>
+            <span class="children-status ${c.status === 'enrolled' ? 'is-enrolled' : 'is-withdrawn'}">
+              ${escapeHtml(c.status)}
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const table = document.getElementById('children-table');
+  table.innerHTML = html;
+
+  // Wire header sorts.
+  table.querySelectorAll('.children-row.is-header [data-sort-key]').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const key = cell.dataset.sortKey;
+      if (childrenSort.key === key) {
+        childrenSort.dir = childrenSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        childrenSort.key = key;
+        childrenSort.dir = 'asc';
+      }
+      saveChildrenSort();
+      renderChildrenView();
+    });
+  });
+
+  // Wire row clicks → open child modal.
+  table.querySelectorAll('.children-row:not(.is-header)').forEach(row => {
+    row.addEventListener('click', () => {
+      openChildModal(row.dataset.childId);
+    });
+  });
+}
+
+/* === Child modal (edit/add) === */
+function openAddChildModal() {
+  editingChildId = null;
+  const modal = document.getElementById('child-modal');
+  document.getElementById('child-modal-title').textContent = 'Add Child';
+  const form = document.getElementById('child-form');
+  form.reset();
+  document.getElementById('child-history-section').style.display = 'none';
+  document.getElementById('schedule-move-form').style.display = 'none';
+  modal.showModal();
+  setTimeout(() => form.elements.name.focus(), 50);
+}
+
+function openChildModal(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return;
+  editingChildId = childId;
+  document.getElementById('child-modal-title').textContent = child.name;
+  const form = document.getElementById('child-form');
+  form.elements.name.value = child.name || '';
+  form.elements.dob.value = child.dob || '';
+  form.elements.parentName.value = child.parentName || '';
+  form.elements.parentPhone.value = child.parentPhone || '';
+  form.elements.parentEmail.value = child.parentEmail || '';
+  form.elements.notes.value = child.notes || '';
+  document.getElementById('child-history-section').style.display = '';
+  document.getElementById('schedule-move-form').style.display = 'none';
+  renderChildHistory(childId);
+  document.getElementById('child-modal').showModal();
+}
+
+function closeChildModal() {
+  document.getElementById('child-modal').close();
+  editingChildId = null;
+}
+
+function renderChildHistory(childId) {
+  const list = document.getElementById('child-history-list');
+  const events = getMoveEventsForChild(childId);
+  if (events.length === 0) {
+    list.innerHTML = `<div style="font-size:13px; color:var(--text-faint); font-style:italic;">No move history yet.</div>`;
+    return;
+  }
+  list.innerHTML = events.map(e => {
+    const room = e.targetClassroomId ? CLASSROOMS.find(c => c.id === e.targetClassroomId) : null;
+    const typeLabel = ({ new_start: 'New start', transition: 'Transition', withdrawal: 'Withdrawal' })[e.type] || e.type;
+    return `
+      <div class="move-event">
+        <div class="move-event-date">${escapeHtml(formatDate(e.effectiveDate))}</div>
+        <div>
+          <span class="move-event-type" data-type="${e.type}">${escapeHtml(typeLabel)}</span>
+          ${room ? escapeHtml(room.name) : (e.type === 'withdrawal' ? '<span style="color:var(--text-muted)">left the center</span>' : '—')}
+          ${e.transitionWeek ? `<span style="color:var(--text-muted); margin-left:6px;">Week of ${escapeHtml(e.transitionWeek)}</span>` : ''}
+          ${e.notes ? `<div class="move-event-notes">${escapeHtml(e.notes)}</div>` : ''}
+        </div>
+        <button type="button" class="move-event-delete" data-move-id="${e.id}" title="Delete this move event">Delete</button>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-move-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Delete this move event? The child\'s history will be recomputed.')) return;
+      const moveId = btn.dataset.moveId;
+      enrollMoves = enrollMoves.filter(m => m.id !== moveId);
+      saveEnrollMoves();
+      refreshAllCachedClassrooms();
+      renderChildHistory(childId);
+      renderModeNav();
+    });
+  });
+}
+
+function handleChildFormSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const name = (form.elements.name.value || '').trim();
+  if (!name) {
+    alert('Please enter the child\'s name.');
+    return;
+  }
+  const data = {
+    name,
+    dob: form.elements.dob.value || null,
+    parentName: (form.elements.parentName.value || '').trim(),
+    parentPhone: (form.elements.parentPhone.value || '').trim(),
+    parentEmail: (form.elements.parentEmail.value || '').trim(),
+    notes: (form.elements.notes.value || '').trim()
+  };
+  if (editingChildId) {
+    const idx = enrollChildren.findIndex(c => c.id === editingChildId);
+    if (idx !== -1) {
+      enrollChildren[idx] = { ...enrollChildren[idx], ...data };
+      saveEnrollChildren();
+    }
+  } else {
+    const id = enrollUuid('child');
+    enrollChildren.push({
+      id,
+      ...data,
+      status: 'enrolled',
+      currentClassroomId: null,
+      createdAt: new Date().toISOString()
+    });
+    saveEnrollChildren();
+    // Stay on the modal so the admin can schedule a first move event.
+    editingChildId = id;
+    document.getElementById('child-modal-title').textContent = name;
+    document.getElementById('child-history-section').style.display = '';
+    renderChildHistory(id);
+    renderModeNav();
+    return;
+  }
+  closeChildModal();
+  render();
+}
+
+/* === Schedule-move form (inside child modal) === */
+function openScheduleMoveForm() {
+  if (!editingChildId) {
+    alert('Save the child first before scheduling moves.');
+    return;
+  }
+  const formEl = document.getElementById('schedule-move-form');
+  // Reset.
+  document.getElementById('schedule-move-type').value = 'transition';
+  document.getElementById('schedule-move-date').value = firstOfNextMonth(todayIso());
+  document.getElementById('schedule-move-week').value = '';
+  document.getElementById('schedule-move-notes').value = '';
+  // Populate classroom dropdown.
+  const sel = document.getElementById('schedule-move-classroom');
+  sel.innerHTML = CLASSROOMS.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  formEl.style.display = 'block';
+  // Scroll the form into view inside the modal body.
+  formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function saveScheduleMove() {
+  if (!editingChildId) return;
+  const type = document.getElementById('schedule-move-type').value;
+  const date = document.getElementById('schedule-move-date').value;
+  const week = document.getElementById('schedule-move-week').value.trim();
+  const notes = document.getElementById('schedule-move-notes').value.trim();
+  const classroomId = document.getElementById('schedule-move-classroom').value;
+  if (!date) {
+    alert('Please pick an effective date.');
+    return;
+  }
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId: editingChildId,
+    type,
+    targetClassroomId: type === 'withdrawal' ? null : classroomId,
+    effectiveDate: date,
+    transitionWeek: week || null,
+    notes,
+    createdAt: new Date().toISOString(),
+    approved: true
+  });
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  // If we withdrew, update the child's status.
+  if (type === 'withdrawal' && date <= todayIso()) {
+    const idx = enrollChildren.findIndex(c => c.id === editingChildId);
+    if (idx !== -1) {
+      enrollChildren[idx].status = 'withdrawn';
+      saveEnrollChildren();
+    }
+  }
+  document.getElementById('schedule-move-form').style.display = 'none';
+  renderChildHistory(editingChildId);
+  renderModeNav();
+}
+
+function withdrawCurrentChild() {
+  if (!editingChildId) return;
+  if (disenrollChild(editingChildId)) {
+    renderChildHistory(editingChildId);
+    renderModeNav();
+  }
+}
+
+// Shared helper: writes the withdrawal move + status change for a child.
+// Used by both the deep child-modal "Withdraw" button and the small Roster
+// popover "Disenroll" button. Returns true if the disenrollment happened,
+// false if the user cancelled or the child was already withdrawn.
+function disenrollChild(childId) {
+  if (!childId) return false;
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return false;
+  if (child.status === 'withdrawn') return false;
+  if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from the roster.`)) return false;
+  const today = todayIso();
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId: childId,
+    type: 'withdrawal',
+    targetClassroomId: null,
+    effectiveDate: today,
+    transitionWeek: null,
+    notes: '',
+    createdAt: new Date().toISOString(),
+    approved: true
+  });
+  child.status = 'withdrawn';
+  child.currentClassroomId = null;
+  saveEnrollMoves();
+  saveEnrollChildren();
+  return true;
+}
+
+/* === Start-from-waitlist modal === */
+function openStartChildModal(waitlistId) {
+  const entry = entries.find(e => e.id === waitlistId);
+  if (!entry) return;
+  const modal = document.getElementById('start-child-modal');
+  document.getElementById('start-child-name').textContent = entry.childName;
+  const age = entry.childBirthday ? formatAge(diffMonths(entry.childBirthday, todayIso())) : '—';
+  document.getElementById('start-child-meta').textContent =
+    ` · Born ${entry.childBirthday ? formatDate(entry.childBirthday) : '—'} · ${age}`;
+  // Default effective date.
+  const defaultDate = entry.isASAP ? firstOfNextMonth(todayIso()) :
+    (entry.preferredStartDate || firstOfNextMonth(todayIso()));
+  document.getElementById('start-child-date').value = defaultDate;
+  // Populate classroom select.
+  const sel = document.getElementById('start-child-classroom');
+  sel.innerHTML = CLASSROOMS.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  // Default classroom: from age at start.
+  sel.value = getClassroomForEntry(entry, defaultDate);
+  document.getElementById('start-child-notes').value = '';
+  modal.dataset.waitlistId = waitlistId;
+  modal.showModal();
+}
+
+function closeStartChildModal() {
+  document.getElementById('start-child-modal').close();
+}
+
+function handleStartChildSubmit(e) {
+  e.preventDefault();
+  const modal = document.getElementById('start-child-modal');
+  const waitlistId = modal.dataset.waitlistId;
+  const entry = entries.find(x => x.id === waitlistId);
+  if (!entry) {
+    alert('Could not find the waitlist entry.');
+    return;
+  }
+  const date = document.getElementById('start-child-date').value;
+  const classroomId = document.getElementById('start-child-classroom').value;
+  const notes = document.getElementById('start-child-notes').value.trim();
+  if (!date) {
+    alert('Please choose a start date.');
+    return;
+  }
+  const now = new Date().toISOString();
+  const childId = enrollUuid('child');
+  enrollChildren.push({
+    id: childId,
+    name: entry.childName,
+    dob: entry.childBirthday,
+    parentName: entry.parentName || '',
+    parentPhone: entry.phone || '',
+    parentEmail: entry.email || '',
+    notes: entry.notes || '',
+    status: 'enrolled',
+    currentClassroomId: classroomId,
+    createdAt: now
+  });
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId,
+    type: 'new_start',
+    targetClassroomId: classroomId,
+    effectiveDate: date,
+    transitionWeek: null,
+    notes,
+    createdAt: now,
+    approved: true
+  });
+  saveEnrollChildren();
+  saveEnrollMoves();
+  // Mark waitlist entry as placed so it leaves the active list.
+  const idx = entries.findIndex(x => x.id === waitlistId);
+  if (idx !== -1) {
+    entries[idx].status = 'placed';
+    saveEntries();
+  }
+  refreshAllCachedClassrooms();
+  closeStartChildModal();
+  render();
+}
+
+/* === Top-level render dispatcher (replaces the original) === */
+// The original render() handled only the waitlist's classroom routes. We keep
+// that as renderWaitlistView() and dispatch by currentMode at the top.
+const originalRender = render;
+render = function() {
+  renderModeNav();
+  updatePageHeader();
+  updateHeaderActions();
+  if (currentMode === 'waitlist') {
+    // Show classroom-nav, hide the new view containers.
+    document.getElementById('classroom-nav').style.display = '';
+    document.getElementById('roster-view').style.display = 'none';
+    document.getElementById('children-view').style.display = 'none';
+    // Delegate to the original waitlist render.
+    originalRender();
+    return;
+  }
+  // Non-waitlist modes hide the classroom sub-nav.
+  document.getElementById('classroom-nav').style.display = 'none';
+  if (currentMode === 'roster')   renderRosterView();
+  if (currentMode === 'children') renderChildrenView();
+};
+
+function updatePageHeader() {
+  const title = document.getElementById('page-title');
+  const subtitle = document.getElementById('page-subtitle');
+  if (currentMode === 'roster') {
+    title.textContent = 'Enrollment Roster';
+    const enrolled = enrollChildren.filter(c => c.status === 'enrolled').length;
+    subtitle.textContent = `${enrolled} ${enrolled === 1 ? 'child' : 'children'} enrolled · 12-month view`;
+  } else if (currentMode === 'children') {
+    title.textContent = 'All Children';
+    subtitle.textContent = `${enrollChildren.length} total · ${enrollChildren.filter(c => c.status === 'enrolled').length} enrolled, ${enrollChildren.filter(c => c.status === 'withdrawn').length} withdrawn`;
+  }
+  // Otherwise (waitlist mode) the original updatePageTitleFor() handles it.
+}
+
+// Swap the header action buttons based on the active mode so the primary
+// affordance always matches what the user is looking at.
+function updateHeaderActions() {
+  const actions = document.getElementById('header-actions');
+  if (!actions) return;
+  if (currentMode === 'waitlist') {
+    actions.innerHTML = `
+      <button id="export-csv-btn">Export CSV</button>
+      <button id="add-entry-btn" class="primary">+ Add to Waitlist</button>
+    `;
+    document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+    document.getElementById('add-entry-btn').addEventListener('click', openAddModal);
+  } else if (currentMode === 'children') {
+    actions.innerHTML = `
+      <button id="add-child-btn" class="primary">+ Add Child</button>
+    `;
+    document.getElementById('add-child-btn').addEventListener('click', openAddChildModal);
+  } else if (currentMode === 'roster') {
+    actions.innerHTML = `
+      <button id="roster-add-child-btn" class="primary">+ Add Child</button>
+    `;
+    document.getElementById('roster-add-child-btn').addEventListener('click', openAddChildModal);
+  }
+}
+
+/* === Wire waitlist "Start child" button === */
+// We patch renderEntry indirectly: the waitlist sections are re-rendered on
+// every change, so we hook into the section event wiring instead. The button
+// is injected via a small post-render pass over .entry elements.
+function injectStartChildButtons() {
+  // Only on the waitlist view (and only for active entries).
+  if (currentMode !== 'waitlist') return;
+  document.querySelectorAll('#classroom-sections .entry').forEach(row => {
+    if (row.querySelector('[data-action="start-child"]')) return;
+    const actions = row.querySelector('.entry-actions');
+    if (!actions) return;
+    // Find the row's entry id via the edit button.
+    const editBtn = actions.querySelector('[data-action="edit"]');
+    if (!editBtn) return;
+    const id = editBtn.dataset.id;
+    if (!id) return;
+    const entry = entries.find(e => e.id === id);
+    if (!entry || (entry.status || 'active') !== 'active') return;
+    const btn = document.createElement('button');
+    btn.className = 'primary-soft';
+    btn.dataset.action = 'start-child';
+    btn.dataset.id = id;
+    btn.title = 'Move this family off the waitlist and into the enrollment roster';
+    btn.textContent = 'Start child';
+    // Insert before the Offered Spot button so the flow reads: Contact → Start
+    // child → Offered. (Existing buttons are kept intact.)
+    const offerBtn = actions.querySelector('[data-action="offered"]');
+    if (offerBtn) actions.insertBefore(btn, offerBtn);
+    else actions.appendChild(btn);
+    btn.addEventListener('click', () => openStartChildModal(id));
+  });
+}
+
 // Public API for future website-form integration
 window.WaitlistAPI = {
   addEntry: (data) => { const e = addEntry(data); render(); return e; },
   getEntries: () => [...entries],
+  classrooms: CLASSROOMS
+};
+window.EnrollmentAPI = {
+  getChildren: () => [...enrollChildren],
+  getMoves: () => [...enrollMoves],
   classrooms: CLASSROOMS
 };
 </script>
