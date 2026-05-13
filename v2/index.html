@@ -3508,6 +3508,15 @@ function firstOfMonth(iso) {
   return isoFromDate(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
+// ISO of the last day of the month containing `iso`. Used as the "as of" date
+// for each column in the Roster grid so that moves happening DURING a month
+// are reflected in that month's column (not deferred to the next month).
+function lastDayOfMonth(iso) {
+  const d = iso ? new Date(iso + 'T00:00:00') : new Date();
+  // Day 0 of next month = last day of this month
+  return isoFromDate(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+
 // Daycare currently uses YYYY-MM (HTML5 month input) for the roster window.
 function monthToFirstOfMonth(ym) {
   if (!ym) return firstOfMonth(todayIso());
@@ -3646,9 +3655,12 @@ function renderRosterView() {
     `;
     for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
       const m = months[monthIdx];
-      // Use the first of the month as the reference date — kids are in the
-      // room they belong to AT THE START of the month.
-      const roster = getRosterForClassroomOnDate(classroom.id, m);
+      // Use the LAST day of the month as the reference date — so any moves
+      // (including "Move Now" actions taken today, or scheduled mid-month
+      // transitions) are reflected in the column for the month they happen.
+      // A move effective May 13 should show up in the May column, not June.
+      const asOfM = lastDayOfMonth(m);
+      const roster = getRosterForClassroomOnDate(classroom.id, asOfM);
       const count = roster.length;
       let countCls = '';
       if (count > classroom.capacity) countCls = 'is-over-capacity';
@@ -3660,7 +3672,7 @@ function renderRosterView() {
       const kidsHtml = roster.length === 0
         ? '<div class="roster-empty-classroom">empty</div>'
         : roster.map(child => {
-            const ageMonths = diffMonths(child.dob, m);
+            const ageMonths = diffMonths(child.dob, asOfM);
             const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
             // Per-child cell state — only computed for the highlight column.
             let cellStateCls = '';
