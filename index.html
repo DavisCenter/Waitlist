@@ -1258,6 +1258,64 @@
     cursor: not-allowed;
   }
 
+  /* === Undo toast === */
+  #undo-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(140%);
+    background: #1c1c1c;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    font-size: 13px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.18s, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  #undo-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+  }
+  #undo-toast-message {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #undo-toast button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.12s;
+  }
+  #undo-toast button:hover {
+    background: rgba(255,255,255,0.12);
+  }
+  #undo-toast-close {
+    border: none !important;
+    padding: 0 6px !important;
+    font-size: 18px;
+    line-height: 1;
+    opacity: 0.55;
+  }
+  #undo-toast-close:hover {
+    opacity: 1;
+    background: transparent !important;
+  }
+
   /* === Children directory === */
   .children-toolbar {
     background: var(--surface);
@@ -1698,6 +1756,14 @@
     </div>
   </div>
 </dialog>
+
+<!-- Undo toast — appears at the bottom of the screen after destructive actions
+     (disenroll, back-to-waitlist). Auto-dismisses after ~10 seconds. -->
+<div id="undo-toast" role="status" aria-live="polite">
+  <span id="undo-toast-message">—</span>
+  <button type="button" id="undo-toast-btn">Undo</button>
+  <button type="button" id="undo-toast-close" aria-label="Dismiss">&times;</button>
+</div>
 
 <dialog id="entry-modal">
   <form id="entry-form" novalidate>
@@ -2272,6 +2338,12 @@ let currentMode = storage.get(CURRENT_MODE_KEY) || 'waitlist';
 if (!MODES.includes(currentMode)) currentMode = 'waitlist';
 // Currently focused child id in the cell-action popover (set when opened).
 let cellActionChildId = null;
+// Session-scoped undo state — holds the LAST destructive action (disenroll or
+// back-to-waitlist) so the user can one-click reverse it. Cleared when the
+// timer expires (~10s), when dismissed, or when undone.
+let lastUndoableAction = null;
+let undoToastTimerId = null;
+const UNDO_TIMEOUT_MS = 10000;
 
 /* === Storage === */
 function loadEntries() {
@@ -3312,6 +3384,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('schedule-move-save-btn').addEventListener('click', saveScheduleMove);
   document.getElementById('withdraw-btn').addEventListener('click', withdrawCurrentChild);
   document.getElementById('back-to-waitlist-btn').addEventListener('click', sendCurrentChildBackToWaitlist);
+  // Undo toast — Undo button reverses the last destructive action; close button dismisses.
+  document.getElementById('undo-toast-btn').addEventListener('click', undoLastAction);
+  document.getElementById('undo-toast-close').addEventListener('click', hideUndoToast);
   // Withdrawal type hides the classroom select since target is null.
   document.getElementById('schedule-move-type').addEventListener('change', e => {
     const isWithdrawal = e.target.value === 'withdrawal';
@@ -4288,8 +4363,12 @@ function saveScheduleMove() {
 function withdrawCurrentChild() {
   if (!editingChildId) return;
   if (disenrollChild(editingChildId)) {
-    renderChildHistory(editingChildId);
-    renderModeNav();
+    // Close the modal so the undo toast is visible (the toast otherwise sits
+    // behind the open dialog's top-layer). Consistent with the back-to-waitlist
+    // flow and the Roster popover's Disenroll behavior.
+    closeChildModal();
+    refreshAllCachedClassrooms();
+    render();
   }
 }
 
@@ -4330,8 +4409,9 @@ function sendCurrentChildBackToWaitlist() {
   saveEntries();
 
   // Withdrawal move event for the child.
+  const moveEventId = enrollUuid('move');
   enrollMoves.push({
-    id: enrollUuid('move'),
+    id: moveEventId,
     childId: child.id,
     type: 'withdrawal',
     targetClassroomId: null,
@@ -4349,6 +4429,10 @@ function sendCurrentChildBackToWaitlist() {
   refreshAllCachedClassrooms();
   closeChildModal();
   render();
+  showUndoToast(
+    { type: 'back_to_waitlist', childId: child.id, moveEventId, waitlistEntryId: newEntry.id, childName: child.name },
+    `${child.name} moved back to the waitlist.`
+  );
 }
 
 // Shared helper: writes the withdrawal move + status change for a child.
@@ -4362,8 +4446,9 @@ function disenrollChild(childId) {
   if (child.status === 'withdrawn') return false;
   if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from Projections.`)) return false;
   const today = todayIso();
+  const moveEventId = enrollUuid('move');
   enrollMoves.push({
-    id: enrollUuid('move'),
+    id: moveEventId,
     childId: childId,
     type: 'withdrawal',
     targetClassroomId: null,
@@ -4377,7 +4462,66 @@ function disenrollChild(childId) {
   child.currentClassroomId = null;
   saveEnrollMoves();
   saveEnrollChildren();
+  showUndoToast(
+    { type: 'disenroll', childId, moveEventId, childName: child.name },
+    `${child.name} disenrolled.`
+  );
   return true;
+}
+
+/* === Undo toast ============================================================
+   Shown after a destructive action (disenroll / back-to-waitlist). The user
+   can hit Undo within ~10 seconds to reverse the change. Undo reverses by
+   removing the new move event (and the new waitlist entry, in the back-to-
+   waitlist case), then letting refreshAllCachedClassrooms() recompute the
+   child's classroom + status from the remaining move events.
+   ========================================================================= */
+function showUndoToast(action, message) {
+  lastUndoableAction = action;
+  const toast = document.getElementById('undo-toast');
+  if (!toast) return;
+  document.getElementById('undo-toast-message').textContent = message;
+  toast.classList.add('is-visible');
+  if (undoToastTimerId) clearTimeout(undoToastTimerId);
+  undoToastTimerId = setTimeout(hideUndoToast, UNDO_TIMEOUT_MS);
+}
+
+function hideUndoToast() {
+  if (undoToastTimerId) clearTimeout(undoToastTimerId);
+  undoToastTimerId = null;
+  lastUndoableAction = null;
+  const toast = document.getElementById('undo-toast');
+  if (toast) toast.classList.remove('is-visible');
+}
+
+function undoLastAction() {
+  if (!lastUndoableAction) return;
+  const action = lastUndoableAction;
+  // Hide immediately so the user has feedback even if the work below takes a tick.
+  hideUndoToast();
+
+  if (action.type !== 'disenroll' && action.type !== 'back_to_waitlist') return;
+
+  // 1. Remove the withdrawal move event.
+  if (action.moveEventId) {
+    const idx = enrollMoves.findIndex(m => m.id === action.moveEventId);
+    if (idx !== -1) enrollMoves.splice(idx, 1);
+    saveEnrollMoves();
+  }
+  // 2. Remove the new waitlist entry (back-to-waitlist only).
+  if (action.type === 'back_to_waitlist' && action.waitlistEntryId) {
+    const idx = entries.findIndex(e => e.id === action.waitlistEntryId);
+    if (idx !== -1) entries.splice(idx, 1);
+    saveEntries();
+  }
+  // 3. Reset the child's status so refreshAllCachedClassrooms recomputes from events.
+  const child = enrollChildren.find(c => c.id === action.childId);
+  if (child) {
+    child.status = 'enrolled';
+    saveEnrollChildren();
+  }
+  refreshAllCachedClassrooms();
+  render();
 }
 
 /* === Start-from-waitlist modal === */
