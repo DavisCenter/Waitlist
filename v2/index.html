@@ -1126,6 +1126,21 @@
     background: none;
     border: none;
   }
+  .cell-action-disenroll {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .cell-action-disenroll button {
+    width: 100%;
+    padding: 10px 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cell-action-disenroll button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 
   /* === Children directory === */
   .children-toolbar {
@@ -1545,6 +1560,9 @@
       <button type="button" class="primary" id="cell-action-forward-btn" title="Move to the next classroom on the 1st of next month">Move Forward &rarr;</button>
     </div>
     <button type="button" class="cell-action-link" id="cell-action-history-link">View full history &amp; edit</button>
+    <div class="cell-action-disenroll">
+      <button type="button" class="danger" id="cell-action-disenroll-btn" title="Mark this child as withdrawn effective today">Disenroll</button>
+    </div>
   </div>
 </dialog>
 
@@ -3175,6 +3193,15 @@ document.addEventListener('DOMContentLoaded', () => {
     closeCellActionPopover();
     if (childId) openChildModal(childId);
   });
+  document.getElementById('cell-action-disenroll-btn').addEventListener('click', () => {
+    const childId = cellActionChildId;
+    if (!childId) return;
+    if (disenrollChild(childId)) {
+      closeCellActionPopover();
+      refreshAllCachedClassrooms();
+      render();
+    }
+  });
   // Backdrop click closes the popover.
   document.getElementById('cell-action-modal').addEventListener('click', (e) => {
     if (e.target.tagName === 'DIALOG') closeCellActionPopover();
@@ -3579,6 +3606,14 @@ function openCellActionPopover(childId) {
     ? `Move to ${nextRoom.name} on ${formatDate(firstOfNextMonth(today))}`
     : 'Already in the oldest classroom';
 
+  // Disenroll button — defensive disable if the child is already withdrawn
+  // (shouldn't happen since withdrawn kids aren't in the roster, but be safe).
+  const disenrollBtn = document.getElementById('cell-action-disenroll-btn');
+  disenrollBtn.disabled = child.status === 'withdrawn';
+  disenrollBtn.title = child.status === 'withdrawn'
+    ? 'Child is already withdrawn'
+    : `Mark ${child.name} as withdrawn effective today`;
+
   document.getElementById('cell-action-modal').showModal();
 }
 
@@ -3909,13 +3944,26 @@ function saveScheduleMove() {
 
 function withdrawCurrentChild() {
   if (!editingChildId) return;
-  const child = enrollChildren.find(c => c.id === editingChildId);
-  if (!child) return;
-  if (!confirm(`Mark ${child.name} as withdrawn? This adds a withdrawal event effective today.`)) return;
+  if (disenrollChild(editingChildId)) {
+    renderChildHistory(editingChildId);
+    renderModeNav();
+  }
+}
+
+// Shared helper: writes the withdrawal move + status change for a child.
+// Used by both the deep child-modal "Withdraw" button and the small Roster
+// popover "Disenroll" button. Returns true if the disenrollment happened,
+// false if the user cancelled or the child was already withdrawn.
+function disenrollChild(childId) {
+  if (!childId) return false;
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return false;
+  if (child.status === 'withdrawn') return false;
+  if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from the roster.`)) return false;
   const today = todayIso();
   enrollMoves.push({
     id: enrollUuid('move'),
-    childId: editingChildId,
+    childId: childId,
     type: 'withdrawal',
     targetClassroomId: null,
     effectiveDate: today,
@@ -3928,8 +3976,7 @@ function withdrawCurrentChild() {
   child.currentClassroomId = null;
   saveEnrollMoves();
   saveEnrollChildren();
-  renderChildHistory(editingChildId);
-  renderModeNav();
+  return true;
 }
 
 /* === Start-from-waitlist modal === */
@@ -4068,7 +4115,10 @@ function updateHeaderActions() {
     `;
     document.getElementById('add-child-btn').addEventListener('click', openAddChildModal);
   } else if (currentMode === 'roster') {
-    actions.innerHTML = '';
+    actions.innerHTML = `
+      <button id="roster-add-child-btn" class="primary">+ Add Child</button>
+    `;
+    document.getElementById('roster-add-child-btn').addEventListener('click', openAddChildModal);
   }
 }
 
