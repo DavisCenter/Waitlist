@@ -786,7 +786,7 @@
     color: #5a3608;
   }
 
-  /* === Top-level mode nav (Waitlist / Roster / Pending / Children) === */
+  /* === Top-level mode nav (Waitlist / Roster / Children) === */
   .mode-nav {
     display: flex;
     gap: 6px;
@@ -832,14 +832,6 @@
   }
   .mode-tab.is-active .mode-badge {
     background: rgba(255,255,255,0.25);
-    color: white;
-  }
-  .mode-tab.has-pending .mode-badge {
-    background: #fff3e0;
-    color: #b06000;
-  }
-  .mode-tab.is-active.has-pending .mode-badge {
-    background: rgba(255,255,255,0.35);
     color: white;
   }
 
@@ -1011,113 +1003,128 @@
     font-size: 11px;
   }
 
-  /* === Pending decisions (approval queue) === */
-  .pending-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  /* === Roster cell color-coding (today's column only) === */
+  /* Applied to each child's button (roster-child) — the per-child "cell" that
+     visually represents one kid in one classroom on the today column. */
+  .roster-cell.is-planned,
+  .roster-child.is-planned {
+    background: rgba(74, 111, 165, 0.10);
+    border-left: 3px solid #4a6fa5;
+    padding-left: 7px; /* compensate for border */
   }
-  .pending-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 20px;
-    box-shadow: var(--shadow-sm);
-    border-left: 4px solid var(--accent-bar, var(--accent));
+  .roster-cell.is-approaching,
+  .roster-child.is-approaching {
+    background: rgba(214, 161, 58, 0.12);
+    border-left: 3px solid #d6a13a;
+    padding-left: 7px;
   }
-  .pending-card[data-kind="age_up"]      { --accent-bar: #e8a972; }
-  .pending-card[data-kind="waitlist"]    { --accent-bar: #4a6fa5; }
-  .pending-header {
+  /* Keep hover affordance distinct even when color-coded. */
+  .roster-child.is-planned:hover {
+    background: rgba(74, 111, 165, 0.18);
+    border-color: #4a6fa5;
+  }
+  .roster-child.is-approaching:hover {
+    background: rgba(214, 161, 58, 0.22);
+    border-color: #d6a13a;
+  }
+
+  /* === Roster legend (visual key for color-coded cells) === */
+  .roster-legend {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 6px;
-  }
-  .pending-name {
-    font-size: 15px;
-    font-weight: 650;
-  }
-  .pending-kind-badge {
-    display: inline-block;
-    padding: 2px 9px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    border-radius: 9px;
-    background: #f0ece2;
-    color: var(--text-muted);
-  }
-  .pending-card[data-kind="age_up"] .pending-kind-badge {
-    background: #fff3e0;
-    color: #b06000;
-  }
-  .pending-card[data-kind="waitlist"] .pending-kind-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  .pending-meta {
+    gap: 18px;
     font-size: 12px;
     color: var(--text-muted);
-    margin-bottom: 8px;
+    margin: -8px 2px 12px;
+    padding: 0 4px;
   }
-  .pending-move {
-    font-size: 13px;
-    margin: 8px 0;
+  .roster-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .roster-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .roster-legend-dot.is-approaching { background: #d6a13a; }
+  .roster-legend-dot.is-planned     { background: #4a6fa5; }
+
+  /* === Waitlist "ready to start" highlight === */
+  .entry.is-ready-to-start { box-shadow: inset 3px 0 0 #2d7a3d; }
+  .ready-badge {
+    display: inline-block; background: #e6f4ea; color: #2d7a3d;
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 10px; margin-left: 8px;
+  }
+
+  /* === Roster-cell action popover (small dialog) === */
+  dialog.cell-action-popover {
+    max-width: 320px;
+    width: 320px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    background: var(--surface);
     color: var(--text);
   }
-  .pending-move .pending-move-room {
-    display: inline-block;
-    padding: 2px 8px;
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+  dialog.cell-action-popover::backdrop {
+    background: rgba(0,0,0,0.25);
+  }
+  .cell-action-body {
+    padding: 18px 20px 14px;
+  }
+  .cell-action-name {
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .cell-action-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+  .cell-action-meta strong {
+    color: var(--text);
     font-weight: 600;
   }
-  .pending-move .pending-move-arrow {
-    margin: 0 6px;
-    color: var(--text-muted);
-  }
-  .pending-reason {
-    font-size: 13px;
-    color: var(--text);
-    background: var(--surface-soft);
-    border-left: 3px solid var(--accent-bar, var(--border-strong));
-    padding: 8px 12px;
-    margin: 8px 0 12px;
-    border-radius: 0 4px 4px 0;
-  }
-  .pending-actions {
-    display: flex;
+  .cell-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    flex-wrap: wrap;
+    margin-bottom: 10px;
   }
-  .pending-approve-form {
-    margin-top: 14px;
-    padding: 14px;
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    display: none;
+  .cell-action-buttons button {
+    padding: 10px 8px;
+    font-size: 13px;
+    font-weight: 600;
   }
-  .pending-approve-form.is-open {
+  .cell-action-buttons button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .cell-action-link {
     display: block;
-  }
-  .pending-empty {
-    background: var(--surface);
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius);
-    padding: 56px 28px;
     text-align: center;
-    color: var(--text-muted);
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 4px;
+    margin: 0 auto;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline;
   }
-  .pending-empty strong {
-    color: var(--text);
-    display: block;
-    font-size: 16px;
-    margin-bottom: 6px;
+  .cell-action-link:hover {
+    color: var(--accent-hover);
+    background: none;
+    border: none;
   }
 
   /* === Children directory === */
@@ -1372,16 +1379,15 @@
       <button id="roster-today-btn" type="button">This month</button>
       <button id="roster-prev-btn" type="button" title="Shift window backward 3 months">&laquo; 3 mo</button>
       <button id="roster-next-btn" type="button" title="Shift window forward 3 months">3 mo &raquo;</button>
-      <span class="roster-note">Click a child to see their move history. Counts go amber at capacity, red over.</span>
+      <span class="roster-note">Click a child to move them between rooms. Counts go amber at capacity, red over.</span>
+    </div>
+    <div class="roster-legend" aria-label="Color key">
+      <span class="roster-legend-item"><span class="roster-legend-dot is-approaching"></span>Approaching age-out (next 30 days)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-planned"></span>Planned move (next 30 days)</span>
     </div>
     <div class="roster-scroll">
       <div id="roster-grid" class="roster-grid"></div>
     </div>
-  </div>
-
-  <!-- Pending decisions queue -->
-  <div id="pending-view" style="display:none">
-    <div id="pending-list" class="pending-list"></div>
   </div>
 
   <!-- Children directory -->
@@ -1529,19 +1535,16 @@
   </form>
 </dialog>
 
-<!-- View-only move history modal (from roster cell clicks) -->
-<dialog id="history-modal">
-  <div class="modal-header">
-    <h2 id="history-modal-title">Move history</h2>
-    <button type="button" class="close-btn" id="close-history-modal-btn" aria-label="Close">&times;</button>
-  </div>
-  <div class="modal-body">
-    <div id="history-modal-meta" style="margin-bottom:14px;"></div>
-    <div id="history-modal-list" class="move-history"></div>
-  </div>
-  <div class="modal-footer">
-    <button type="button" id="history-modal-edit-btn">Edit child</button>
-    <button type="button" id="history-modal-close-btn">Close</button>
+<!-- Compact cell-action popover (from roster cell clicks) -->
+<dialog id="cell-action-modal" class="cell-action-popover">
+  <div class="cell-action-body">
+    <div class="cell-action-name" id="cell-action-name">—</div>
+    <div class="cell-action-meta" id="cell-action-meta"></div>
+    <div class="cell-action-buttons">
+      <button type="button" id="cell-action-back-btn" title="Move to the previous classroom on the 1st of next month">&larr; Move Back</button>
+      <button type="button" class="primary" id="cell-action-forward-btn" title="Move to the next classroom on the 1st of next month">Move Forward &rarr;</button>
+    </div>
+    <button type="button" class="cell-action-link" id="cell-action-history-link">View full history &amp; edit</button>
   </div>
 </dialog>
 
@@ -1660,14 +1663,13 @@ const VIEW_DATE_KEY = 'waitlist_view_date_v1';
 // Enrollment Tracker storage keys (alongside the waitlist data, never touch it).
 const ENROLL_CHILDREN_KEY  = 'enrollment_children_v1';
 const ENROLL_MOVES_KEY     = 'enrollment_moves_v1';
-const ENROLL_POSTPONED_KEY = 'enrollment_postponed_v1';
 const ENROLL_SEEDED_KEY    = 'enrollment_seeded_v1';
 const ENROLL_CHILDREN_SORT_KEY = 'enrollment_children_sort_v1';
 const ROSTER_START_KEY     = 'enrollment_roster_start_v1';
 const CURRENT_MODE_KEY     = 'enrollment_current_mode_v1';
 
 // Modes for the top-level nav. 'waitlist' preserves all existing behavior.
-const MODES = ['waitlist', 'roster', 'pending', 'children'];
+const MODES = ['waitlist', 'roster', 'children'];
 
 // Safe storage wrapper. Falls back to in-memory when localStorage is blocked
 // (e.g., sandboxed iframes without `allow-same-origin`). The page still works
@@ -2104,8 +2106,6 @@ let enrollChildren = loadEnrollChildren();
 // Move events: new_start, transition, withdrawal. Replayed to compute who's
 // in each classroom on any given date.
 let enrollMoves = loadEnrollMoves();
-// Postponed pending-decision records — when a suggested age-up was deferred.
-let enrollPostponed = loadEnrollPostponed();
 // Sort/filter state for the Children directory.
 let childrenSort = loadChildrenSort();
 let childrenSearch = '';
@@ -2114,11 +2114,11 @@ let childrenFilter = 'enrolled';
 let editingChildId = null;
 // Roster start month (first column). Stored as 'YYYY-MM'.
 let rosterStartMonth = null; // set in init()
-// Top-level mode: 'waitlist' | 'roster' | 'pending' | 'children'.
+// Top-level mode: 'waitlist' | 'roster' | 'children'.
 let currentMode = storage.get(CURRENT_MODE_KEY) || 'waitlist';
 if (!MODES.includes(currentMode)) currentMode = 'waitlist';
-// Currently expanded pending card (one at a time, so the approve form has focus).
-let openPendingId = null;
+// Currently focused child id in the cell-action popover (set when opened).
+let cellActionChildId = null;
 
 /* === Storage === */
 function loadEntries() {
@@ -2150,13 +2150,6 @@ function loadEnrollMoves() {
 }
 function saveEnrollMoves() {
   try { storage.set(ENROLL_MOVES_KEY, JSON.stringify(enrollMoves)); } catch {}
-}
-function loadEnrollPostponed() {
-  try { return JSON.parse(storage.get(ENROLL_POSTPONED_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveEnrollPostponed() {
-  try { storage.set(ENROLL_POSTPONED_KEY, JSON.stringify(enrollPostponed)); } catch {}
 }
 function loadChildrenSort() {
   try { return JSON.parse(storage.get(ENROLL_CHILDREN_SORT_KEY) || '{}'); }
@@ -2634,6 +2627,22 @@ function renderEntry(entry) {
   const isPlanning = viewDate && viewDate !== todayIso();
   const ageLabel = isPlanning ? `on ${formatDate(viewDate)}` : 'now';
 
+  // "Ready to start" highlight: active entries whose preferred start is within
+  // the next 30 days (or ASAP). Visual nudge for the director to convert these
+  // to enrolled children. We compute against today (not viewDate) — the
+  // imminence question is real-time, regardless of how the page is being viewed.
+  const todayStr = todayIso();
+  const horizonStr = addMonthsIso(todayStr, 1);
+  const isActive = (entry.status || 'active') === 'active';
+  const startSoon = entry.preferredStartDate &&
+                    entry.preferredStartDate >= todayStr &&
+                    entry.preferredStartDate <= horizonStr;
+  const isReadyToStart = isActive && (entry.isASAP || startSoon);
+  const readyClass = isReadyToStart ? ' is-ready-to-start' : '';
+  const readyBadge = isReadyToStart
+    ? ' <span class="ready-badge" title="Preferred start within 30 days">Ready</span>'
+    : '';
+
   // Age column logic:
   //   - If preferred start is in the future → show age at start as primary,
   //     current age as secondary
@@ -2690,14 +2699,14 @@ function renderEntry(entry) {
         : '<span style="color:var(--text-faint)">—</span>');
 
   return `
-    <div class="entry" title="${escapeHtml(rowTitle)}">
+    <div class="entry${readyClass}" title="${escapeHtml(rowTitle)}">
       <div class="entry-col">
         <div class="entry-primary">${escapeHtml(formatDate(entry.dateAdded.slice(0,10)))}</div>
         <div class="entry-meta ${contacted.cls}" ${contacted.dateLabel ? `title="${escapeHtml(contacted.dateLabel)}"` : ''}>${escapeHtml(contactedDisplay)}</div>
       </div>
 
       <div class="entry-col">
-        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${notesIcon}</div>
+        <div class="entry-name"><button class="entry-name-btn" data-action="edit" data-id="${entry.id}" title="Open details / edit">${escapeHtml(entry.childName)}</button>${readyBadge}${notesIcon}</div>
         <div class="entry-meta">Born ${escapeHtml(formatDate(entry.childBirthday))}${entry.touredOn ? ` · <span style="color:var(--success);">Toured ${escapeHtml(formatDate(entry.touredOn))}</span>` : ''}</div>
       </div>
 
@@ -3154,15 +3163,25 @@ document.addEventListener('DOMContentLoaded', () => {
       getClassroomForEntry(entry, e.target.value);
   });
 
-  // History modal
-  document.getElementById('close-history-modal-btn').addEventListener('click', () => {
-    document.getElementById('history-modal').close();
+  // Cell-action popover (Roster cell clicks → compact move dialog)
+  document.getElementById('cell-action-back-btn').addEventListener('click', () => {
+    applyCellActionMove(-1);
   });
-  document.getElementById('history-modal-close-btn').addEventListener('click', () => {
-    document.getElementById('history-modal').close();
+  document.getElementById('cell-action-forward-btn').addEventListener('click', () => {
+    applyCellActionMove(1);
   });
-  document.getElementById('history-modal').addEventListener('click', (e) => {
-    if (e.target.tagName === 'DIALOG') e.target.close();
+  document.getElementById('cell-action-history-link').addEventListener('click', () => {
+    const childId = cellActionChildId;
+    closeCellActionPopover();
+    if (childId) openChildModal(childId);
+  });
+  // Backdrop click closes the popover.
+  document.getElementById('cell-action-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeCellActionPopover();
+  });
+  // Esc / dialog "cancel" event also clears the focused child id.
+  document.getElementById('cell-action-modal').addEventListener('close', () => {
+    cellActionChildId = null;
   });
 
   // Roster toolbar.
@@ -3262,7 +3281,6 @@ function updateTimeTravelBar() {
    Data model:
      enrollChildren  — array of { id, name, dob, parent*, status, ... }
      enrollMoves     — array of { id, childId, type, targetClassroomId, effectiveDate, ... }
-     enrollPostponed — array of { id, childId, fromClassroomId, toClassroomId, postponedUntil }
 
    The child's room is computed by replaying their move events up to a
    target date — there's no single "currentRoom" field of record (the
@@ -3280,15 +3298,13 @@ function setMode(mode) {
 function renderModeNav() {
   const nav = document.getElementById('mode-nav');
   if (!nav) return;
-  const pending = computePendingDecisions();
   const tabs = [
     { id: 'waitlist', label: 'Waitlist',  count: entries.filter(e => (e.status || 'active') === 'active').length, countLabel: 'on waitlist' },
     { id: 'roster',   label: 'Roster',    count: enrollChildren.filter(c => c.status === 'enrolled').length, countLabel: 'enrolled' },
-    { id: 'pending',  label: 'Pending',   count: pending.length, countLabel: 'decisions', isPending: true },
     { id: 'children', label: 'Children',  count: enrollChildren.length, countLabel: 'children' }
   ];
   nav.innerHTML = tabs.map(t => `
-    <button class="mode-tab ${currentMode === t.id ? 'is-active' : ''} ${t.isPending && t.count > 0 ? 'has-pending' : ''}"
+    <button class="mode-tab ${currentMode === t.id ? 'is-active' : ''}"
             data-mode="${t.id}">
       <span>${escapeHtml(t.label)}</span>
       ${t.count > 0 ? `<span class="mode-badge">${t.count}</span>` : ''}
@@ -3304,13 +3320,6 @@ function renderModeNav() {
 function firstOfNextMonth(iso) {
   const ref = iso ? new Date(iso + 'T00:00:00') : new Date();
   const d = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
-  return isoFromDate(d);
-}
-
-// First day of month two cycles ahead — used for postponement default.
-function firstOfMonthAfterNext(iso) {
-  const ref = iso ? new Date(iso + 'T00:00:00') : new Date();
-  const d = new Date(ref.getFullYear(), ref.getMonth() + 2, 1);
   return isoFromDate(d);
 }
 
@@ -3400,215 +3409,33 @@ function getRosterForClassroomOnDate(classroomId, date) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/* === Pending decisions (the approval queue) === */
-// Compute the list of decisions waiting on admin approval. Two kinds:
-//   - age_up: an enrolled child will age out of their current classroom soon.
-//   - waitlist: a waitlist family wants to start enrollment soon.
-// Returns an array of { id, kind, childName, dob, parentContact, currentRoomId,
-//   suggestedRoomId, reason, source } objects.
-function computePendingDecisions() {
-  const today = todayIso();
-  const horizon = addMonthsIso(today, 1); // 30-day lead time (1 month)
-  const decisions = [];
-
-  // --- Age-up suggestions ---
-  for (const child of enrollChildren) {
-    if (child.status !== 'enrolled' || !child.dob) continue;
-    const currentRoomId = getClassroomForChildOnDate(child, today);
-    if (!currentRoomId) continue; // hasn't started or withdrawn
-    const currentRoom = CLASSROOMS.find(c => c.id === currentRoomId);
-    if (!currentRoom) continue;
-    if (currentRoom.id === 'prek') continue; // no room to age up to
-
-    // Date the child crosses the maxMonths threshold for the current room.
-    const ageUpDate = addMonthsIso(child.dob, currentRoom.maxMonths);
-    if (!ageUpDate) continue;
-    if (ageUpDate > horizon) continue; // too far out
-    if (ageUpDate < today) {
-      // Already past the boundary — still flag, but reason text reflects that.
-    }
-
-    // Skip if a transition is already scheduled in the future.
-    const events = getMoveEventsForChild(child.id);
-    const futureTransition = events.find(e =>
-      (e.type === 'transition' || e.type === 'withdrawal') && e.effectiveDate >= today
-    );
-    if (futureTransition) continue;
-
-    // Skip if currently postponed.
-    const postponed = enrollPostponed.find(p =>
-      p.childId === child.id && p.postponedUntil > today
-    );
-    if (postponed) continue;
-
-    // Suggested room: next CLASSROOMS entry, or compute by age.
-    const idx = CLASSROOMS.findIndex(c => c.id === currentRoomId);
-    const suggestedRoom = CLASSROOMS[idx + 1] || CLASSROOMS[CLASSROOMS.length - 1];
-
-    const ageMonthsAtBoundary = currentRoom.maxMonths;
-    const isOverdue = ageUpDate < today;
-    const reason = isOverdue
-      ? `Turned ${ageMonthsAtBoundary} months on ${formatDate(ageUpDate)} — already past the age range for ${currentRoom.name}.`
-      : `Will turn ${ageMonthsAtBoundary} months on ${formatDate(ageUpDate)} — ages out of ${currentRoom.name}.`;
-    decisions.push({
-      id: 'ageup_' + child.id,
-      kind: 'age_up',
-      childId: child.id,
-      childName: child.name,
-      dob: child.dob,
-      parentName: child.parentName,
-      parentPhone: child.parentPhone,
-      parentEmail: child.parentEmail,
-      currentRoomId,
-      suggestedRoomId: suggestedRoom.id,
-      ageMonthsAtBoundary,
-      ageUpDate,
-      isOverdue,
-      reason
-    });
-  }
-
-  // --- Waitlist intake suggestions ---
-  // "Within 30 days" = upcoming 30 days. We don't surface entries with a long-
-  // past preferredStartDate (those become noise — the family either started
-  // already or their plans changed). ASAP entries are always shown.
-  for (const e of entries) {
-    if ((e.status || 'active') !== 'active') continue;
-    if (!e.isASAP) {
-      if (!e.preferredStartDate) continue;
-      if (e.preferredStartDate > horizon) continue;
-      // Skip entries with a start date more than 30 days in the past — they're
-      // stale. The admin can still see them on the waitlist itself.
-      const pastHorizon = addMonthsIso(today, -1);
-      if (e.preferredStartDate < pastHorizon) continue;
-    }
-
-    // Skip if a corresponding new_start already exists in moves.
-    const dupMove = enrollMoves.find(m =>
-      m.type === 'new_start' &&
-      enrollChildren.find(c => c.id === m.childId && c.name === e.childName && c.dob === e.childBirthday)
-    );
-    if (dupMove) continue;
-
-    // Skip if currently postponed (use waitlist id as the key).
-    const postponed = enrollPostponed.find(p =>
-      p.childId === 'wait_' + e.id && p.postponedUntil > today
-    );
-    if (postponed) continue;
-
-    // Suggested room: from age at preferred start (or today, for ASAP).
-    const suggestedRoomId = getClassroomForEntry(e, today);
-    const startDate = e.isASAP ? today : e.preferredStartDate;
-    const reasonStart = e.isASAP
-      ? `Family marked ASAP — ready to start now.`
-      : `Family wants to start ${formatDate(e.preferredStartDate)}.`;
-
-    decisions.push({
-      id: 'waitlist_' + e.id,
-      kind: 'waitlist',
-      waitlistId: e.id,
-      childName: e.childName,
-      dob: e.childBirthday,
-      parentName: e.parentName,
-      parentPhone: e.phone,
-      parentEmail: e.email,
-      currentRoomId: null,
-      suggestedRoomId,
-      startDate,
-      reason: reasonStart
-    });
-  }
-
-  // Sort: most urgent first (earliest age-up date / earliest preferred start).
-  decisions.sort((a, b) => {
-    const aDate = a.ageUpDate || a.startDate || '9999';
-    const bDate = b.ageUpDate || b.startDate || '9999';
-    return aDate.localeCompare(bDate);
-  });
-
-  return decisions;
-}
-
-// Approve a pending decision — creates the appropriate move event and (for
-// waitlist intake) the new enrollment child. Removes the source from pending.
-function approveDecision(decision, effectiveDate, transitionWeek, notes) {
-  const nowIso = new Date().toISOString();
-  if (decision.kind === 'age_up') {
-    enrollMoves.push({
-      id: enrollUuid('move'),
-      childId: decision.childId,
-      type: 'transition',
-      targetClassroomId: decision.suggestedRoomId,
-      effectiveDate,
-      transitionWeek: (transitionWeek || '').trim() || null,
-      notes: (notes || '').trim(),
-      createdAt: nowIso,
-      approved: true
-    });
-    saveEnrollMoves();
-  } else if (decision.kind === 'waitlist') {
-    // Create the enrollment child from the waitlist entry.
-    const entry = entries.find(e => e.id === decision.waitlistId);
-    if (!entry) return false;
-    const childId = enrollUuid('child');
-    enrollChildren.push({
-      id: childId,
-      name: entry.childName,
-      dob: entry.childBirthday,
-      parentName: entry.parentName || '',
-      parentPhone: entry.phone || '',
-      parentEmail: entry.email || '',
-      notes: entry.notes || '',
-      status: 'enrolled',
-      currentClassroomId: decision.suggestedRoomId,
-      createdAt: nowIso
-    });
-    enrollMoves.push({
-      id: enrollUuid('move'),
-      childId,
-      type: 'new_start',
-      targetClassroomId: decision.suggestedRoomId,
-      effectiveDate,
-      transitionWeek: (transitionWeek || '').trim() || null,
-      notes: (notes || '').trim(),
-      createdAt: nowIso,
-      approved: true
-    });
-    saveEnrollChildren();
-    saveEnrollMoves();
-    // Mark the waitlist entry as 'placed' so it leaves the active list but
-    // remains in the historical record. (Matches the existing "placed" flow.)
-    const idx = entries.findIndex(x => x.id === entry.id);
-    if (idx !== -1) {
-      entries[idx].status = 'placed';
-      saveEntries();
-    }
-  }
-  // Drop any matching postponement record (no longer relevant).
-  enrollPostponed = enrollPostponed.filter(p =>
-    p.childId !== (decision.childId || ('wait_' + decision.waitlistId))
+/* === Roster cell state (for color coding) === */
+// Compute whether a child should be highlighted in TODAY's cell. Three states:
+//   - 'planned'     — a transition or withdrawal is scheduled in the next 30 days
+//   - 'approaching' — child will cross their classroom's maxMonths boundary
+//                     within the next 30 days, and nothing is already scheduled
+//   - null          — no special styling
+// `today` and `horizon` are passed in so the caller computes them once per render.
+function computeRosterCellState(child, classroomId, today, horizon) {
+  if (!child) return null;
+  const events = getMoveEventsForChild(child.id);
+  // Planned: any move event of type transition/withdrawal between today and horizon.
+  const plannedMove = events.find(e =>
+    (e.type === 'transition' || e.type === 'withdrawal') &&
+    e.effectiveDate >= today && e.effectiveDate <= horizon
   );
-  saveEnrollPostponed();
-  refreshAllCachedClassrooms();
-  return true;
-}
-
-// Defer a pending decision by one cycle (until the start of the month after next).
-function postponeDecision(decision) {
-  const today = todayIso();
-  const until = firstOfMonthAfterNext(today);
-  const childId = decision.childId || ('wait_' + decision.waitlistId);
-  // Replace any existing postponement for the same key.
-  enrollPostponed = enrollPostponed.filter(p => p.childId !== childId);
-  enrollPostponed.push({
-    id: enrollUuid('post'),
-    childId,
-    fromClassroomId: decision.currentRoomId || null,
-    toClassroomId: decision.suggestedRoomId || null,
-    postponedUntil: until,
-    postponedAt: new Date().toISOString()
-  });
-  saveEnrollPostponed();
+  if (plannedMove) return 'planned';
+  // Approaching: child must be in this classroom right now AND have a dob.
+  if (!child.dob) return null;
+  const classroom = CLASSROOMS.find(c => c.id === classroomId);
+  if (!classroom) return null;
+  const ageUpDate = addMonthsIso(child.dob, classroom.maxMonths);
+  if (!ageUpDate) return null;
+  // "Will age past in the next 30 days" — strictly future-facing. Kids who are
+  // already past the boundary (overdue) also get flagged so the director sees
+  // them, but kids whose age-up is more than 30 days out are not yet urgent.
+  if (ageUpDate <= horizon) return 'approaching';
+  return null;
 }
 
 /* === Roster view === */
@@ -3616,7 +3443,6 @@ function renderRosterView() {
   // Hide other views; show roster.
   document.getElementById('main-view').style.display = 'none';
   document.getElementById('offered-view').style.display = 'none';
-  document.getElementById('pending-view').style.display = 'none';
   document.getElementById('children-view').style.display = 'none';
   document.getElementById('roster-view').style.display = '';
 
@@ -3632,8 +3458,17 @@ function renderRosterView() {
   for (let i = 0; i < 12; i++) {
     months.push(addMonthsIso(startIso, i));
   }
+  // Compute "today" date once — used for the 30-day cell-state lookahead.
   const todayIsoStr = todayIso();
   const thisMonthIso = firstOfMonth(todayIsoStr);
+  const horizonIso = addMonthsIso(todayIsoStr, 1); // ~30 day window
+
+  // The cell-state classes (planned / approaching) only apply to TODAY'S column
+  // (or the leftmost column if today isn't in the visible window). This way the
+  // color coding says "this child needs attention right now", not "every cell
+  // forever."
+  const todayColumnIdx = months.findIndex(m => m === thisMonthIso);
+  const highlightColumnIdx = todayColumnIdx === -1 ? 0 : todayColumnIdx;
 
   const grid = document.getElementById('roster-grid');
   // CSS grid-template-columns: first column = label, then one per month.
@@ -3656,7 +3491,8 @@ function renderRosterView() {
         <div class="roster-classroom-meta">Capacity ${classroom.capacity} · Ratio ${escapeHtml(classroom.ratio)}</div>
       </div>
     `;
-    for (const m of months) {
+    for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
+      const m = months[monthIdx];
       // Use the first of the month as the reference date — kids are in the
       // room they belong to AT THE START of the month.
       const roster = getRosterForClassroomOnDate(classroom.id, m);
@@ -3665,13 +3501,23 @@ function renderRosterView() {
       if (count > classroom.capacity) countCls = 'is-over-capacity';
       else if (count === classroom.capacity) countCls = 'is-at-capacity';
 
+      // Only the "today" column gets the planned/approaching cell-state classes.
+      const isHighlightColumn = monthIdx === highlightColumnIdx;
+
       const kidsHtml = roster.length === 0
         ? '<div class="roster-empty-classroom">empty</div>'
         : roster.map(child => {
             const ageMonths = diffMonths(child.dob, m);
             const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
+            // Per-child cell state — only computed for the highlight column.
+            let cellStateCls = '';
+            if (isHighlightColumn) {
+              const state = computeRosterCellState(child, classroom.id, todayIsoStr, horizonIso);
+              if (state === 'planned')          cellStateCls = 'is-planned';
+              else if (state === 'approaching') cellStateCls = 'is-approaching';
+            }
             return `
-              <button class="roster-child" data-child-id="${child.id}" type="button"
+              <button class="roster-child ${cellStateCls}" data-child-id="${child.id}" type="button"
                       title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
                 <span class="roster-child-name">${escapeHtml(child.name)}</span>
                 <span class="roster-child-age">${escapeHtml(ageStr)}</span>
@@ -3689,134 +3535,91 @@ function renderRosterView() {
 
   grid.innerHTML = html;
 
-  // Wire child buttons → open history modal.
+  // Wire child buttons → open compact cell-action popover.
   grid.querySelectorAll('[data-child-id]').forEach(btn => {
-    btn.addEventListener('click', () => openHistoryModal(btn.dataset.childId));
+    btn.addEventListener('click', () => openCellActionPopover(btn.dataset.childId));
   });
 }
 
-/* === Pending view === */
-function renderPendingView() {
-  document.getElementById('main-view').style.display = 'none';
-  document.getElementById('offered-view').style.display = 'none';
-  document.getElementById('roster-view').style.display = 'none';
-  document.getElementById('children-view').style.display = 'none';
-  document.getElementById('pending-view').style.display = '';
+/* === Cell-action popover (click child in Roster → move forward / back) === */
+// Opens a small dialog showing the child's name, current room, age, plus two
+// adjacent-room move buttons. Persists via the normal saveEnrollMoves() path.
+function openCellActionPopover(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return;
+  cellActionChildId = childId;
 
-  const list = document.getElementById('pending-list');
-  const decisions = computePendingDecisions();
+  const today = todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, today);
+  const currentRoom = currentRoomId ? CLASSROOMS.find(c => c.id === currentRoomId) : null;
+  const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
+  const prevRoom = currentIdx > 0 ? CLASSROOMS[currentIdx - 1] : null;
+  const nextRoom = (currentIdx !== -1 && currentIdx < CLASSROOMS.length - 1) ? CLASSROOMS[currentIdx + 1] : null;
 
-  if (decisions.length === 0) {
-    list.innerHTML = `
-      <div class="pending-empty">
-        <strong>All caught up!</strong>
-        <div>No pending decisions right now. We check for kids aging up in the next 30 days, and waitlist families with start dates coming up.</div>
-      </div>
-    `;
-    return;
-  }
+  const ageStr = child.dob ? formatAge(diffMonths(child.dob, today)) : 'age unknown';
+  const roomLabel = currentRoom ? currentRoom.name : 'Not in a room';
 
-  list.innerHTML = decisions.map(d => {
-    const currentRoom = d.currentRoomId ? CLASSROOMS.find(c => c.id === d.currentRoomId) : null;
-    const suggestedRoom = CLASSROOMS.find(c => c.id === d.suggestedRoomId);
-    const kindLabel = d.kind === 'age_up' ? 'Age Up' : 'New Start';
-    const contactBits = [];
-    if (d.parentName) contactBits.push(escapeHtml(d.parentName));
-    if (d.parentPhone) contactBits.push(`<a href="tel:${escapeHtml(d.parentPhone.replace(/\s/g, ''))}">${escapeHtml(d.parentPhone)}</a>`);
-    if (d.parentEmail) contactBits.push(`<a href="mailto:${escapeHtml(d.parentEmail)}">${escapeHtml(d.parentEmail)}</a>`);
-    const contactHtml = contactBits.length ? contactBits.join(' · ') : '<span style="color:var(--text-faint)">no contact info on file</span>';
-    const ageStr = d.dob ? formatAge(diffMonths(d.dob, todayIso())) : '—';
-    const moveHtml = currentRoom
-      ? `<span class="pending-move-room">${escapeHtml(currentRoom.name)}</span><span class="pending-move-arrow">&rarr;</span><span class="pending-move-room">${escapeHtml(suggestedRoom ? suggestedRoom.name : '?')}</span>`
-      : `<span class="pending-move-room">Waitlist</span><span class="pending-move-arrow">&rarr;</span><span class="pending-move-room">${escapeHtml(suggestedRoom ? suggestedRoom.name : '?')}</span>`;
-    const isOpen = openPendingId === d.id;
-    // Default effective date: first of next month.
-    const defaultEffective = firstOfNextMonth(todayIso());
-    return `
-      <div class="pending-card" data-kind="${d.kind}" data-decision-id="${d.id}">
-        <div class="pending-header">
-          <div>
-            <div class="pending-name">${escapeHtml(d.childName)}</div>
-            <div class="pending-meta">
-              Born ${escapeHtml(formatDate(d.dob))} · ${escapeHtml(ageStr)} · ${contactHtml}
-            </div>
-          </div>
-          <span class="pending-kind-badge">${escapeHtml(kindLabel)}</span>
-        </div>
-        <div class="pending-move">${moveHtml}</div>
-        <div class="pending-reason">${escapeHtml(d.reason)}</div>
-        <div class="pending-actions">
-          <button class="primary" data-pending-action="approve-toggle" data-decision-id="${d.id}">
-            ${isOpen ? 'Cancel approval' : 'Approve'}
-          </button>
-          <button data-pending-action="postpone" data-decision-id="${d.id}" title="Defer this suggestion for one cycle">
-            Postpone
-          </button>
-        </div>
-        <div class="pending-approve-form ${isOpen ? 'is-open' : ''}" data-form-for="${d.id}">
-          <div class="form-row">
-            <div class="form-field">
-              <label>Effective date</label>
-              <input type="date" data-pending-input="date" value="${defaultEffective}">
-            </div>
-            <div class="form-field">
-              <label>Transition week <span class="checkbox-hint">(optional)</span></label>
-              <input type="text" data-pending-input="week" placeholder="e.g. 2/23-2/27">
-            </div>
-          </div>
-          <div class="form-field">
-            <label>Notes <span class="checkbox-hint">(optional)</span></label>
-            <textarea data-pending-input="notes" rows="2"></textarea>
-          </div>
-          <div style="display:flex; gap:8px; justify-content:flex-end;">
-            <button data-pending-action="approve-confirm" data-decision-id="${d.id}" class="primary">Save move</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
+  document.getElementById('cell-action-name').textContent = child.name;
+  document.getElementById('cell-action-meta').innerHTML = `
+    <strong>${escapeHtml(roomLabel)}</strong> &middot; ${escapeHtml(ageStr)}
+  `;
 
-  // Wire buttons.
-  list.querySelectorAll('[data-pending-action]').forEach(btn => {
-    const action = btn.dataset.pendingAction;
-    const id = btn.dataset.decisionId;
-    btn.addEventListener('click', () => handlePendingAction(action, id));
-  });
+  const backBtn = document.getElementById('cell-action-back-btn');
+  const forwardBtn = document.getElementById('cell-action-forward-btn');
+
+  // Move Back button — disabled if already in infant_a (or not in any room).
+  backBtn.disabled = !prevRoom || currentRoomId === 'infant_a';
+  backBtn.title = prevRoom
+    ? `Move to ${prevRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    : 'Already in the youngest classroom';
+
+  // Move Forward button — disabled if already in prek (or not in any room).
+  forwardBtn.disabled = !nextRoom || currentRoomId === 'prek';
+  forwardBtn.title = nextRoom
+    ? `Move to ${nextRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    : 'Already in the oldest classroom';
+
+  document.getElementById('cell-action-modal').showModal();
 }
 
-function handlePendingAction(action, decisionId) {
-  const decisions = computePendingDecisions();
-  const decision = decisions.find(d => d.id === decisionId);
-  if (!decision) {
-    render();
-    return;
-  }
-  if (action === 'approve-toggle') {
-    openPendingId = openPendingId === decisionId ? null : decisionId;
-    renderPendingView();
-    renderModeNav();
-    return;
-  }
-  if (action === 'approve-confirm') {
-    const card = document.querySelector(`[data-decision-id="${decisionId}"].pending-card`);
-    const dateInput = card.querySelector('[data-pending-input="date"]');
-    const weekInput = card.querySelector('[data-pending-input="week"]');
-    const notesInput = card.querySelector('[data-pending-input="notes"]');
-    const effectiveDate = dateInput.value;
-    if (!effectiveDate) {
-      alert('Please pick an effective date.');
-      return;
-    }
-    approveDecision(decision, effectiveDate, weekInput.value, notesInput.value);
-    openPendingId = null;
-    render();
-    return;
-  }
-  if (action === 'postpone') {
-    postponeDecision(decision);
-    render();
-    return;
-  }
+function closeCellActionPopover() {
+  const dlg = document.getElementById('cell-action-modal');
+  if (dlg.open) dlg.close();
+  cellActionChildId = null;
+}
+
+// Direction: -1 for back, +1 for forward.
+function applyCellActionMove(direction) {
+  if (!cellActionChildId) return;
+  const child = enrollChildren.find(c => c.id === cellActionChildId);
+  if (!child) return;
+  const today = todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, today);
+  const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
+  if (currentIdx === -1) return;
+  const targetRoom = CLASSROOMS[currentIdx + direction];
+  if (!targetRoom) return;
+  // Disabled-state guards (defense in depth, in case the button somehow fired).
+  if (direction === -1 && currentRoomId === 'infant_a') return;
+  if (direction ===  1 && currentRoomId === 'prek')     return;
+
+  const effectiveDate = firstOfNextMonth(today);
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId: child.id,
+    type: 'transition',
+    targetClassroomId: targetRoom.id,
+    effectiveDate,
+    transitionWeek: null,
+    notes: '',
+    createdAt: new Date().toISOString(),
+    approved: true
+  });
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  closeCellActionPopover();
+  // Re-render — cell color coding will update automatically.
+  render();
 }
 
 /* === Children directory === */
@@ -3824,7 +3627,6 @@ function renderChildrenView() {
   document.getElementById('main-view').style.display = 'none';
   document.getElementById('offered-view').style.display = 'none';
   document.getElementById('roster-view').style.display = 'none';
-  document.getElementById('pending-view').style.display = 'none';
   document.getElementById('children-view').style.display = '';
 
   // Apply current filter + search.
@@ -4130,55 +3932,6 @@ function withdrawCurrentChild() {
   renderModeNav();
 }
 
-/* === History modal (roster cell clicks — read-only-ish) === */
-function openHistoryModal(childId) {
-  const child = enrollChildren.find(c => c.id === childId);
-  if (!child) return;
-  document.getElementById('history-modal-title').textContent = child.name;
-  const meta = document.getElementById('history-modal-meta');
-  const ageStr = child.dob ? formatAge(diffMonths(child.dob, todayIso())) : 'unknown age';
-  const dobStr = child.dob ? formatDate(child.dob) : 'unknown DOB';
-  const classroom = child.currentClassroomId
-    ? CLASSROOMS.find(c => c.id === child.currentClassroomId)
-    : null;
-  meta.innerHTML = `
-    <div style="font-size:13px; color:var(--text-muted);">
-      Born ${escapeHtml(dobStr)} · ${escapeHtml(ageStr)} ·
-      Currently in <strong style="color:var(--text)">${escapeHtml(classroom ? classroom.name : 'Not in a room')}</strong> ·
-      <span class="children-status ${child.status === 'enrolled' ? 'is-enrolled' : 'is-withdrawn'}" style="margin-left:4px;">${escapeHtml(child.status)}</span>
-    </div>
-  `;
-  const list = document.getElementById('history-modal-list');
-  const events = getMoveEventsForChild(childId);
-  if (events.length === 0) {
-    list.innerHTML = `<div style="font-size:13px; color:var(--text-faint); font-style:italic;">No move history.</div>`;
-  } else {
-    list.innerHTML = events.map(e => {
-      const room = e.targetClassroomId ? CLASSROOMS.find(c => c.id === e.targetClassroomId) : null;
-      const typeLabel = ({ new_start: 'New start', transition: 'Transition', withdrawal: 'Withdrawal' })[e.type] || e.type;
-      return `
-        <div class="move-event">
-          <div class="move-event-date">${escapeHtml(formatDate(e.effectiveDate))}</div>
-          <div>
-            <span class="move-event-type" data-type="${e.type}">${escapeHtml(typeLabel)}</span>
-            ${room ? escapeHtml(room.name) : (e.type === 'withdrawal' ? '<span style="color:var(--text-muted)">left the center</span>' : '—')}
-            ${e.transitionWeek ? `<span style="color:var(--text-muted); margin-left:6px;">Week of ${escapeHtml(e.transitionWeek)}</span>` : ''}
-            ${e.notes ? `<div class="move-event-notes">${escapeHtml(e.notes)}</div>` : ''}
-          </div>
-          <div></div>
-        </div>
-      `;
-    }).join('');
-  }
-  // Wire "Edit child" to open the full edit modal.
-  const editBtn = document.getElementById('history-modal-edit-btn');
-  editBtn.onclick = () => {
-    document.getElementById('history-modal').close();
-    openChildModal(childId);
-  };
-  document.getElementById('history-modal').showModal();
-}
-
 /* === Start-from-waitlist modal === */
 function openStartChildModal(waitlistId) {
   const entry = entries.find(e => e.id === waitlistId);
@@ -4272,7 +4025,6 @@ render = function() {
     // Show classroom-nav, hide the new view containers.
     document.getElementById('classroom-nav').style.display = '';
     document.getElementById('roster-view').style.display = 'none';
-    document.getElementById('pending-view').style.display = 'none';
     document.getElementById('children-view').style.display = 'none';
     // Delegate to the original waitlist render.
     originalRender();
@@ -4281,7 +4033,6 @@ render = function() {
   // Non-waitlist modes hide the classroom sub-nav.
   document.getElementById('classroom-nav').style.display = 'none';
   if (currentMode === 'roster')   renderRosterView();
-  if (currentMode === 'pending')  renderPendingView();
   if (currentMode === 'children') renderChildrenView();
 };
 
@@ -4292,12 +4043,6 @@ function updatePageHeader() {
     title.textContent = 'Enrollment Roster';
     const enrolled = enrollChildren.filter(c => c.status === 'enrolled').length;
     subtitle.textContent = `${enrolled} ${enrolled === 1 ? 'child' : 'children'} enrolled · 12-month view`;
-  } else if (currentMode === 'pending') {
-    title.textContent = 'Pending Decisions';
-    const pending = computePendingDecisions();
-    subtitle.textContent = pending.length === 0
-      ? 'All caught up — no decisions waiting'
-      : `${pending.length} ${pending.length === 1 ? 'decision' : 'decisions'} waiting on your approval`;
   } else if (currentMode === 'children') {
     title.textContent = 'All Children';
     subtitle.textContent = `${enrollChildren.length} total · ${enrollChildren.filter(c => c.status === 'enrolled').length} enrolled, ${enrollChildren.filter(c => c.status === 'withdrawn').length} withdrawn`;
@@ -4322,7 +4067,7 @@ function updateHeaderActions() {
       <button id="add-child-btn" class="primary">+ Add Child</button>
     `;
     document.getElementById('add-child-btn').addEventListener('click', openAddChildModal);
-  } else if (currentMode === 'roster' || currentMode === 'pending') {
+  } else if (currentMode === 'roster') {
     actions.innerHTML = '';
   }
 }
@@ -4369,7 +4114,6 @@ window.WaitlistAPI = {
 window.EnrollmentAPI = {
   getChildren: () => [...enrollChildren],
   getMoves: () => [...enrollMoves],
-  getPending: () => computePendingDecisions(),
   classrooms: CLASSROOMS
 };
 </script>
