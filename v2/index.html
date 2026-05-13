@@ -1258,6 +1258,18 @@
     cursor: not-allowed;
   }
 
+  /* Global disabled-button style — without this, disabled buttons look identical
+     to enabled ones and the user can't tell why their click does nothing. */
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  button:disabled:hover {
+    background: var(--surface);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
   /* === Undo toast === */
   #undo-toast {
     position: fixed;
@@ -4200,9 +4212,10 @@ function openChildModal(childId) {
 function updateChildModalActionState(child) {
   const backBtn = document.getElementById('back-to-waitlist-btn');
   if (backBtn) {
-    const isWithdrawn = child.status === 'withdrawn';
-    const hasClassroom = !!child.currentClassroomId;
-    backBtn.disabled = isWithdrawn || !hasClassroom;
+    // Disabled only if already withdrawn. We allow back-to-waitlist for any
+    // non-withdrawn child even if they have no current classroom — they might
+    // be in a "limbo" enrolled state (no events yet, or future-only events).
+    backBtn.disabled = (child.status === 'withdrawn');
   }
   const originalLine = document.getElementById('child-original-waitlist');
   if (originalLine) {
@@ -4381,7 +4394,10 @@ function sendCurrentChildBackToWaitlist() {
   const child = enrollChildren.find(c => c.id === editingChildId);
   if (!child) return;
   if (child.status === 'withdrawn') return;
-  if (!child.currentClassroomId) return;
+  // Note: we used to require a currentClassroomId here, but that made the button
+  // silently no-op for children in unusual states (e.g., added manually with no
+  // classroom, or with only future move events). Now the only blocker is that
+  // they're already withdrawn.
   if (!confirm(`Move ${child.name} back to the waitlist? They'll be removed from Projections and re-added to the active waitlist.`)) return;
 
   const nowIso = new Date().toISOString();
