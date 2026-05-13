@@ -1755,6 +1755,41 @@
   </form>
 </dialog>
 
+<!-- Withdrawal modal — used by both the Roster popover's Disenroll button
+     and the deep child modal's Withdraw button. Lets the admin pick an
+     effective date so withdrawals can be scheduled in advance. -->
+<dialog id="withdrawal-modal">
+  <form id="withdrawal-form" novalidate>
+    <div class="modal-header">
+      <h2>Schedule withdrawal</h2>
+      <button type="button" class="close-btn" id="close-withdrawal-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" style="
+        background: var(--surface-soft); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+        <span style="font-weight:600;" id="withdrawal-child-name">—</span>
+        <span style="color:var(--text-muted); font-size:12px;" id="withdrawal-child-meta"></span>
+      </div>
+      <div class="form-field">
+        <label>Effective date <span class="req">*</span></label>
+        <input type="date" id="withdrawal-date" required>
+      </div>
+      <div class="form-field">
+        <label>Notes <span class="checkbox-hint">(optional)</span></label>
+        <textarea id="withdrawal-notes" rows="2"></textarea>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;">
+        If the date is in the future, the child remains in Projections until that date passes.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="withdrawal-cancel-btn">Cancel</button>
+      <button type="submit" class="danger">Confirm withdrawal</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Compact cell-action popover (from roster cell clicks) -->
 <dialog id="cell-action-modal" class="cell-action-popover">
   <div class="cell-action-body">
@@ -3421,6 +3456,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('schedule-move-classroom').disabled = isWithdrawal;
   });
 
+  // Withdrawal modal — opened by both the deep child modal's Withdraw button
+  // and the Roster popover's Disenroll button. Collects an effective date.
+  document.getElementById('withdrawal-form').addEventListener('submit', handleWithdrawalSubmit);
+  document.getElementById('close-withdrawal-btn').addEventListener('click', closeWithdrawalModal);
+  document.getElementById('withdrawal-cancel-btn').addEventListener('click', closeWithdrawalModal);
+  document.getElementById('withdrawal-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeWithdrawalModal();
+  });
+
   // Start-from-waitlist modal
   document.getElementById('start-child-form').addEventListener('submit', handleStartChildSubmit);
   document.getElementById('close-start-child-btn').addEventListener('click', closeStartChildModal);
@@ -3477,11 +3521,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cell-action-disenroll-btn').addEventListener('click', () => {
     const childId = cellActionChildId;
     if (!childId) return;
-    if (disenrollChild(childId)) {
-      closeCellActionPopover();
-      refreshAllCachedClassrooms();
-      render();
-    }
+    // Open the withdrawal modal which collects a date + notes. The modal
+    // handles closing the popover after a successful save.
+    openWithdrawalModal(childId);
   });
   // Backdrop click closes the popover.
   document.getElementById('cell-action-modal').addEventListener('click', (e) => {
@@ -4408,14 +4450,10 @@ function saveScheduleMove() {
 
 function withdrawCurrentChild() {
   if (!editingChildId) return;
-  if (disenrollChild(editingChildId)) {
-    // Close the modal so the undo toast is visible (the toast otherwise sits
-    // behind the open dialog's top-layer). Consistent with the back-to-waitlist
-    // flow and the Roster popover's Disenroll behavior.
-    closeChildModal();
-    refreshAllCachedClassrooms();
-    render();
-  }
+  // Open the withdrawal modal layered on top of the deep child modal — it
+  // collects an effective date so admins can schedule withdrawals in advance.
+  // The modal's submit handler closes both modals after a successful save.
+  openWithdrawalModal(editingChildId);
 }
 
 // Moves the currently-open child back onto the active waitlist. Creates a new
@@ -4488,34 +4526,84 @@ function sendCurrentChildBackToWaitlist() {
 // Used by both the deep child-modal "Withdraw" button and the small Roster
 // popover "Disenroll" button. Returns true if the disenrollment happened,
 // false if the user cancelled or the child was already withdrawn.
-function disenrollChild(childId) {
-  if (!childId) return false;
+/* === Withdrawal modal ======================================================
+   A small modal that asks for an effective date + optional notes before
+   creating a withdrawal move event. Used by both:
+   - The Roster popover's "Disenroll" button
+   - The deep child modal's "Withdraw" button
+   When the date is in the future, the child stays in Projections until that
+   date — refreshAllCachedClassrooms recomputes status/classroom from events.
+   ========================================================================= */
+let withdrawalChildId = null;
+
+function openWithdrawalModal(childId) {
   const child = enrollChildren.find(c => c.id === childId);
-  if (!child) return false;
-  if (child.status === 'withdrawn') return false;
-  if (!confirm(`Disenroll ${child.name}? This adds a withdrawal effective today and removes them from Projections.`)) return false;
+  if (!child) return;
+  if (child.status === 'withdrawn') return;
+  withdrawalChildId = childId;
   const today = todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, today);
+  const room = currentRoomId ? CLASSROOMS.find(c => c.id === currentRoomId) : null;
+  const roomLabel = room ? room.name : 'No classroom';
+  const age = child.dob ? formatAge(diffMonths(child.dob, today)) : '—';
+  document.getElementById('withdrawal-child-name').textContent = child.name;
+  document.getElementById('withdrawal-child-meta').textContent = ` — ${roomLabel} · ${age}`;
+  document.getElementById('withdrawal-date').value = today;
+  document.getElementById('withdrawal-notes').value = '';
+  document.getElementById('withdrawal-modal').showModal();
+}
+
+function closeWithdrawalModal() {
+  document.getElementById('withdrawal-modal').close();
+  withdrawalChildId = null;
+}
+
+function handleWithdrawalSubmit(e) {
+  e.preventDefault();
+  if (!withdrawalChildId) return;
+  const child = enrollChildren.find(c => c.id === withdrawalChildId);
+  if (!child) return;
+  if (child.status === 'withdrawn') { closeWithdrawalModal(); return; }
+  const date = document.getElementById('withdrawal-date').value;
+  const notes = document.getElementById('withdrawal-notes').value.trim();
+  if (!date) {
+    alert('Please choose an effective date.');
+    return;
+  }
+  const childId = child.id;
+  const childName = child.name;
+
   const moveEventId = enrollUuid('move');
   enrollMoves.push({
     id: moveEventId,
-    childId: childId,
+    childId,
     type: 'withdrawal',
     targetClassroomId: null,
-    effectiveDate: today,
+    effectiveDate: date,
     transitionWeek: null,
-    notes: '',
+    notes,
     createdAt: new Date().toISOString(),
     approved: true
   });
-  child.status = 'withdrawn';
-  child.currentClassroomId = null;
   saveEnrollMoves();
-  saveEnrollChildren();
+  // Status and currentClassroomId are derived from events — for a future-dated
+  // withdrawal, the child stays "enrolled" until the date arrives. We let
+  // refreshAllCachedClassrooms do the math, so we don't force-set them here.
+  refreshAllCachedClassrooms();
+  closeWithdrawalModal();
+  // Also close any other open modals that were the source of this action.
+  if (editingChildId === childId) closeChildModal();
+  if (cellActionChildId === childId) closeCellActionPopover();
+  render();
+
+  const today = todayIso();
+  const message = date <= today
+    ? `${childName} withdrawn.`
+    : `${childName} scheduled to withdraw on ${formatDate(date)}.`;
   showUndoToast(
-    { type: 'disenroll', childId, moveEventId, childName: child.name },
-    `${child.name} disenrolled.`
+    { type: 'disenroll', childId, moveEventId, childName },
+    message
   );
-  return true;
 }
 
 /* === Undo toast ============================================================
