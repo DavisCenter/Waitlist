@@ -1062,8 +1062,8 @@
 
   /* === Roster-cell action popover (small dialog) === */
   dialog.cell-action-popover {
-    max-width: 320px;
-    width: 320px;
+    max-width: 380px;
+    width: 380px;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -1108,6 +1108,93 @@
     opacity: 0.45;
     cursor: not-allowed;
   }
+  /* Schedule-future-move inline section */
+  .cell-action-schedule {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .cell-action-schedule-heading {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-bottom: 10px;
+  }
+  .cell-action-direction-pills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .cell-action-direction-pill {
+    padding: 7px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+  .cell-action-direction-pill:hover:not(:disabled):not(.is-active) {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .cell-action-direction-pill.is-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .cell-action-direction-pill:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .cell-action-date-row {
+    margin-bottom: 8px;
+  }
+  .cell-action-date-row input[type="date"] {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+  .cell-action-date-row input[type="date"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .cell-action-week-display {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .cell-action-week-display strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .cell-action-week-display.is-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: 0.7;
+  }
+  .cell-action-schedule-btn {
+    width: 100%;
+    padding: 9px 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cell-action-schedule-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
   .cell-action-link {
     display: block;
     text-align: center;
@@ -1116,7 +1203,7 @@
     background: none;
     border: none;
     padding: 4px;
-    margin: 0 auto;
+    margin: 10px auto 0;
     cursor: pointer;
     font-family: inherit;
     text-decoration: underline;
@@ -1556,8 +1643,22 @@
     <div class="cell-action-name" id="cell-action-name">—</div>
     <div class="cell-action-meta" id="cell-action-meta"></div>
     <div class="cell-action-buttons">
-      <button type="button" id="cell-action-back-btn" title="Move to the previous classroom on the 1st of next month">&larr; Move Back</button>
-      <button type="button" class="primary" id="cell-action-forward-btn" title="Move to the next classroom on the 1st of next month">Move Forward &rarr;</button>
+      <button type="button" id="cell-action-back-btn" title="Move to the previous classroom effective today">&larr; Move Back Now</button>
+      <button type="button" class="primary" id="cell-action-forward-btn" title="Move to the next classroom effective today">Move Forward Now &rarr;</button>
+    </div>
+    <div class="cell-action-schedule">
+      <div class="cell-action-schedule-heading">Or schedule for a future date:</div>
+      <div class="cell-action-direction-pills" role="radiogroup" aria-label="Direction">
+        <button type="button" class="cell-action-direction-pill" id="cell-action-pill-back" data-direction="-1" role="radio" aria-checked="false">&larr; Back</button>
+        <button type="button" class="cell-action-direction-pill is-active" id="cell-action-pill-forward" data-direction="1" role="radio" aria-checked="true">Forward &rarr;</button>
+      </div>
+      <div class="cell-action-date-row">
+        <input type="date" id="cell-action-schedule-date" aria-label="Effective date for the scheduled move">
+      </div>
+      <div class="cell-action-week-display" id="cell-action-week-display">
+        Transition week: <strong id="cell-action-week-text">—</strong>
+      </div>
+      <button type="button" class="primary cell-action-schedule-btn" id="cell-action-schedule-btn">Schedule</button>
     </div>
     <button type="button" class="cell-action-link" id="cell-action-history-link">View full history &amp; edit</button>
     <div class="cell-action-disenroll">
@@ -3183,10 +3284,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Cell-action popover (Roster cell clicks → compact move dialog)
   document.getElementById('cell-action-back-btn').addEventListener('click', () => {
-    applyCellActionMove(-1);
+    applyImmediateMove(-1);
   });
   document.getElementById('cell-action-forward-btn').addEventListener('click', () => {
-    applyCellActionMove(1);
+    applyImmediateMove(1);
+  });
+  // Direction-pill toggle for the scheduled-move row.
+  document.getElementById('cell-action-pill-back').addEventListener('click', () => {
+    setCellActionScheduleDirection(-1);
+  });
+  document.getElementById('cell-action-pill-forward').addEventListener('click', () => {
+    setCellActionScheduleDirection(1);
+  });
+  // Date picker: live-update the transition-week display and validate the
+  // Schedule button as the user changes the date.
+  document.getElementById('cell-action-schedule-date').addEventListener('input', () => {
+    updateCellActionWeekDisplay();
+    updateCellActionScheduleButtonState();
+  });
+  document.getElementById('cell-action-schedule-date').addEventListener('change', () => {
+    updateCellActionWeekDisplay();
+    updateCellActionScheduleButtonState();
+  });
+  // Schedule a future move.
+  document.getElementById('cell-action-schedule-btn').addEventListener('click', () => {
+    const dateInput = document.getElementById('cell-action-schedule-date');
+    const effectiveDate = dateInput.value;
+    if (!effectiveDate) return;
+    const transitionWeek = computeTransitionWeek(effectiveDate);
+    applyScheduledMove(cellActionScheduleDirection, effectiveDate, transitionWeek);
   });
   document.getElementById('cell-action-history-link').addEventListener('click', () => {
     const childId = cellActionChildId;
@@ -3569,8 +3695,13 @@ function renderRosterView() {
 }
 
 /* === Cell-action popover (click child in Roster → move forward / back) === */
-// Opens a small dialog showing the child's name, current room, age, plus two
-// adjacent-room move buttons. Persists via the normal saveEnrollMoves() path.
+// Tracks which direction is selected in the "schedule a future move" row.
+// -1 = back, 1 = forward. Defaults to forward each time the popover opens.
+let cellActionScheduleDirection = 1;
+
+// Opens a small dialog showing the child's name, current room, age, plus an
+// immediate-move row and an inline "schedule for a future date" form.
+// Persists via the normal saveEnrollMoves() path.
 function openCellActionPopover(childId) {
   const child = enrollChildren.find(c => c.id === childId);
   if (!child) return;
@@ -3595,16 +3726,37 @@ function openCellActionPopover(childId) {
   const forwardBtn = document.getElementById('cell-action-forward-btn');
 
   // Move Back button — disabled if already in infant_a (or not in any room).
-  backBtn.disabled = !prevRoom || currentRoomId === 'infant_a';
+  const backDisabled = !prevRoom || currentRoomId === 'infant_a';
+  backBtn.disabled = backDisabled;
   backBtn.title = prevRoom
-    ? `Move to ${prevRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    ? `Move to ${prevRoom.name} effective today`
     : 'Already in the youngest classroom';
 
   // Move Forward button — disabled if already in prek (or not in any room).
-  forwardBtn.disabled = !nextRoom || currentRoomId === 'prek';
+  const forwardDisabled = !nextRoom || currentRoomId === 'prek';
+  forwardBtn.disabled = forwardDisabled;
   forwardBtn.title = nextRoom
-    ? `Move to ${nextRoom.name} on ${formatDate(firstOfNextMonth(today))}`
+    ? `Move to ${nextRoom.name} effective today`
     : 'Already in the oldest classroom';
+
+  // Direction pills (for the scheduled-move row) — mirror the immediate-button
+  // disable rules so the user can't schedule an invalid move either.
+  const backPill = document.getElementById('cell-action-pill-back');
+  const forwardPill = document.getElementById('cell-action-pill-forward');
+  backPill.disabled = backDisabled;
+  forwardPill.disabled = forwardDisabled;
+
+  // Default the scheduled-direction to Forward unless forward is disabled (then
+  // pick Back, if available). If both are disabled the user simply can't schedule.
+  let defaultDir = 1;
+  if (forwardDisabled && !backDisabled) defaultDir = -1;
+  setCellActionScheduleDirection(defaultDir);
+
+  // Reset the date picker to the first of next month each time we open.
+  const dateInput = document.getElementById('cell-action-schedule-date');
+  dateInput.value = firstOfNextMonth(today);
+  updateCellActionWeekDisplay();
+  updateCellActionScheduleButtonState();
 
   // Disenroll button — defensive disable if the child is already withdrawn
   // (shouldn't happen since withdrawn kids aren't in the roster, but be safe).
@@ -3623,8 +3775,83 @@ function closeCellActionPopover() {
   cellActionChildId = null;
 }
 
-// Direction: -1 for back, +1 for forward.
-function applyCellActionMove(direction) {
+// Sets the active direction pill in the schedule-row. If the requested
+// direction is disabled, no-ops. Updates pill visuals + the Schedule button.
+function setCellActionScheduleDirection(direction) {
+  const backPill = document.getElementById('cell-action-pill-back');
+  const forwardPill = document.getElementById('cell-action-pill-forward');
+  const target = direction === -1 ? backPill : forwardPill;
+  if (target.disabled) return;
+  cellActionScheduleDirection = direction;
+  backPill.classList.toggle('is-active', direction === -1);
+  forwardPill.classList.toggle('is-active', direction === 1);
+  backPill.setAttribute('aria-checked', direction === -1 ? 'true' : 'false');
+  forwardPill.setAttribute('aria-checked', direction === 1 ? 'true' : 'false');
+  updateCellActionScheduleButtonState();
+}
+
+// Computes & renders the auto-displayed transition-week string for the
+// currently-picked effective date. Empty/invalid date → placeholder.
+function updateCellActionWeekDisplay() {
+  const dateInput = document.getElementById('cell-action-schedule-date');
+  const display = document.getElementById('cell-action-week-display');
+  const text = document.getElementById('cell-action-week-text');
+  const val = dateInput.value;
+  if (!val) {
+    text.textContent = '—';
+    display.classList.add('is-empty');
+    return;
+  }
+  text.textContent = computeTransitionWeek(val);
+  display.classList.remove('is-empty');
+}
+
+// Enables/disables the Schedule button based on date presence + direction
+// validity for the current child.
+function updateCellActionScheduleButtonState() {
+  const btn = document.getElementById('cell-action-schedule-btn');
+  const dateInput = document.getElementById('cell-action-schedule-date');
+  const hasDate = !!dateInput.value;
+  const dirPill = cellActionScheduleDirection === -1
+    ? document.getElementById('cell-action-pill-back')
+    : document.getElementById('cell-action-pill-forward');
+  btn.disabled = !hasDate || dirPill.disabled;
+}
+
+// Computes the Mon–Fri transition-week string preceding the effective-date
+// week. Used as the auto-populated `transitionWeek` for scheduled moves.
+// Example: effectiveDate 2026-03-02 (Mon) → "2/23 – 2/27"
+//          effectiveDate 2026-08-15 (Sat) → "8/3 – 8/7"
+function computeTransitionWeek(effectiveDateIso) {
+  const eff = new Date(effectiveDateIso + 'T00:00:00');
+  const dayOfWeek = eff.getDay(); // 0 = Sun ... 6 = Sat
+  // Monday of the week containing effective date. Sunday: roll back 6 days.
+  const daysToMonday = (dayOfWeek === 0) ? 6 : (dayOfWeek - 1);
+  const monThisWeek = new Date(eff);
+  monThisWeek.setDate(eff.getDate() - daysToMonday);
+  const monPrev = new Date(monThisWeek);
+  monPrev.setDate(monThisWeek.getDate() - 7);
+  const friPrev = new Date(monPrev);
+  friPrev.setDate(monPrev.getDate() + 4);
+  const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${fmt(monPrev)} – ${fmt(friPrev)}`;
+}
+
+// Immediate move — used by the "Move Now" buttons. Effective date is today,
+// transitionWeek is null (a same-day move doesn't need a transition window).
+function applyImmediateMove(direction) {
+  applyCellActionMove(direction, todayIso(), null);
+}
+
+// Scheduled future move — used by the inline Schedule form.
+function applyScheduledMove(direction, effectiveDate, transitionWeek) {
+  if (!effectiveDate) return;
+  applyCellActionMove(direction, effectiveDate, transitionWeek);
+}
+
+// Shared mover. `effectiveDate` and `transitionWeek` are required (callers
+// should pre-compute them via applyImmediateMove / applyScheduledMove).
+function applyCellActionMove(direction, effectiveDate, transitionWeek) {
   if (!cellActionChildId) return;
   const child = enrollChildren.find(c => c.id === cellActionChildId);
   if (!child) return;
@@ -3638,14 +3865,13 @@ function applyCellActionMove(direction) {
   if (direction === -1 && currentRoomId === 'infant_a') return;
   if (direction ===  1 && currentRoomId === 'prek')     return;
 
-  const effectiveDate = firstOfNextMonth(today);
   enrollMoves.push({
     id: enrollUuid('move'),
     childId: child.id,
     type: 'transition',
     targetClassroomId: targetRoom.id,
     effectiveDate,
-    transitionWeek: null,
+    transitionWeek: transitionWeek || null,
     notes: '',
     createdAt: new Date().toISOString(),
     approved: true
