@@ -3691,17 +3691,25 @@ function getClassroomForChildOnDate(child, date) {
   // Iterate chronologically and let later events overwrite.
   let classroom = null;
   let hasStarted = false;
+  let isWithdrawn = false; // tracks whether the most recent state-change was a withdrawal
   for (const e of events) {
     if (e.effectiveDate > date) break;
     if (e.type === 'new_start') {
       hasStarted = true;
+      isWithdrawn = false; // a new_start re-enrolls a withdrawn child
       classroom = e.targetClassroomId;
     } else if (e.type === 'transition') {
+      // A transition AFTER a withdrawal is a no-op — the child is out and must
+      // be explicitly re-enrolled (via a new_start event) before transitions
+      // apply again. This prevents back-to-waitlist / disenroll from being
+      // "undone" by a previously-scheduled future transition.
+      if (isWithdrawn) continue;
       // A transition implies the child has started, even if there's no
       // explicit new_start event (e.g. for seeded roster kids).
       hasStarted = true;
       classroom = e.targetClassroomId;
     } else if (e.type === 'withdrawal') {
+      isWithdrawn = true;
       classroom = null; // withdrawn — not in any room
       // Leave hasStarted true; withdrawn children should not appear in roster
       // anyway, but if they do appear in history it's because they once did.
