@@ -1048,30 +1048,39 @@
     user-select: none;
   }
 
-  /* === Roster cell color-coding (today's column only) === */
-  /* Applied to each child's button (roster-child) — the per-child "cell" that
-     visually represents one kid in one classroom on the today column. */
-  .roster-cell.is-planned,
-  .roster-child.is-planned {
+  /* === Roster cell color-coding (per child per month) ===
+     Each child-cell can be in one of four states based on scheduled events:
+       - is-departing    blue    — transitioning out of this room next month
+       - is-arriving     purple  — transitioned INTO this room this month
+       - is-disenrolling orange  — leaving the center this month
+       - is-new-start    yellow  — starting at the center this month
+     States are mutually exclusive; priority (when multiple could apply):
+     disenrolling > new-start > arriving > departing. */
+  .roster-child.is-departing {
     background: rgba(74, 111, 165, 0.10);
     border-left: 3px solid #4a6fa5;
-    padding-left: 7px; /* compensate for border */
+    padding-left: 7px;
   }
-  .roster-cell.is-approaching,
-  .roster-child.is-approaching {
-    background: rgba(214, 161, 58, 0.12);
-    border-left: 3px solid #d6a13a;
+  .roster-child.is-arriving {
+    background: rgba(139, 92, 246, 0.12);
+    border-left: 3px solid #8b5cf6;
+    padding-left: 7px;
+  }
+  .roster-child.is-disenrolling {
+    background: rgba(234, 88, 12, 0.14);
+    border-left: 3px solid #ea580c;
+    padding-left: 7px;
+  }
+  .roster-child.is-new-start {
+    background: rgba(202, 138, 4, 0.16);
+    border-left: 3px solid #ca8a04;
     padding-left: 7px;
   }
   /* Keep hover affordance distinct even when color-coded. */
-  .roster-child.is-planned:hover {
-    background: rgba(74, 111, 165, 0.18);
-    border-color: #4a6fa5;
-  }
-  .roster-child.is-approaching:hover {
-    background: rgba(214, 161, 58, 0.22);
-    border-color: #d6a13a;
-  }
+  .roster-child.is-departing:hover    { background: rgba(74, 111, 165, 0.18);  border-color: #4a6fa5; }
+  .roster-child.is-arriving:hover     { background: rgba(139, 92, 246, 0.20);  border-color: #8b5cf6; }
+  .roster-child.is-disenrolling:hover { background: rgba(234, 88, 12, 0.22);   border-color: #ea580c; }
+  .roster-child.is-new-start:hover    { background: rgba(202, 138, 4, 0.24);   border-color: #ca8a04; }
 
   /* === Roster legend (visual key for color-coded cells) === */
   .roster-legend {
@@ -1094,8 +1103,10 @@
     height: 10px;
     border-radius: 50%;
   }
-  .roster-legend-dot.is-approaching { background: #d6a13a; }
-  .roster-legend-dot.is-planned     { background: #4a6fa5; }
+  .roster-legend-dot.is-new-start    { background: #ca8a04; }
+  .roster-legend-dot.is-arriving     { background: #8b5cf6; }
+  .roster-legend-dot.is-departing    { background: #4a6fa5; }
+  .roster-legend-dot.is-disenrolling { background: #ea580c; }
 
   /* === Waitlist "ready to start" highlight === */
   .entry.is-ready-to-start { box-shadow: inset 3px 0 0 #2d7a3d; }
@@ -1600,8 +1611,10 @@
       <span class="roster-note">Click a child to move them between rooms. Counts go amber at capacity, red over.</span>
     </div>
     <div class="roster-legend" aria-label="Color key">
-      <span class="roster-legend-item"><span class="roster-legend-dot is-approaching"></span>Approaching age-out (next 30 days)</span>
-      <span class="roster-legend-item"><span class="roster-legend-dot is-planned"></span>Planned move (next 30 days)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-new-start"></span>New start (this month)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-arriving"></span>Transitioning in (this month)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-departing"></span>Transitioning out (next month)</span>
+      <span class="roster-legend-item"><span class="roster-legend-dot is-disenrolling"></span>Disenrolling (this month)</span>
     </div>
     <div class="roster-scroll">
       <div id="roster-grid" class="roster-grid"></div>
@@ -3800,26 +3813,84 @@ function getRosterForClassroomOnDate(classroomId, date) {
 //                     within the next 30 days, and nothing is already scheduled
 //   - null          — no special styling
 // `today` and `horizon` are passed in so the caller computes them once per render.
-function computeRosterCellState(child, classroomId, today, horizon) {
+// Determine the color-coded state of a child in a given classroom for a given
+// month. Returns one of: 'disenrolling', 'new-start', 'arriving', 'departing',
+// or null. Priority is fixed: disenrolling > new-start > arriving > departing,
+// so if multiple could apply, the most-recent state-changing event wins.
+function computeRosterChildState(child, classroomId, monthStartIso, monthEndIso) {
   if (!child) return null;
   const events = getMoveEventsForChild(child.id);
-  // Planned: any move event of type transition/withdrawal between today and horizon.
-  const plannedMove = events.find(e =>
-    (e.type === 'transition' || e.type === 'withdrawal') &&
-    e.effectiveDate >= today && e.effectiveDate <= horizon
+
+  // Withdrawal effective IN this month → orange (leaving the center this month)
+  const withdrawalThisMonth = events.find(e =>
+    e.type === 'withdrawal' &&
+    e.effectiveDate >= monthStartIso && e.effectiveDate <= monthEndIso
   );
-  if (plannedMove) return 'planned';
-  // Approaching: child must be in this classroom right now AND have a dob.
-  if (!child.dob) return null;
-  const classroom = CLASSROOMS.find(c => c.id === classroomId);
-  if (!classroom) return null;
-  const ageUpDate = addMonthsIso(child.dob, classroom.maxMonths);
-  if (!ageUpDate) return null;
-  // "Will age past in the next 30 days" — strictly future-facing. Kids who are
-  // already past the boundary (overdue) also get flagged so the director sees
-  // them, but kids whose age-up is more than 30 days out are not yet urgent.
-  if (ageUpDate <= horizon) return 'approaching';
+  if (withdrawalThisMonth) return 'disenrolling';
+
+  // New start INTO this classroom this month → yellow
+  const newStartThisMonth = events.find(e =>
+    e.type === 'new_start' && e.targetClassroomId === classroomId &&
+    e.effectiveDate >= monthStartIso && e.effectiveDate <= monthEndIso
+  );
+  if (newStartThisMonth) return 'new-start';
+
+  // Transition INTO this classroom this month → purple (just arrived)
+  const arrivingThisMonth = events.find(e =>
+    e.type === 'transition' && e.targetClassroomId === classroomId &&
+    e.effectiveDate >= monthStartIso && e.effectiveDate <= monthEndIso
+  );
+  if (arrivingThisMonth) return 'arriving';
+
+  // Transition OUT to another classroom next month → blue (departing).
+  // Note: withdrawals don't trigger blue — orange (in the actual withdrawal
+  // month) is the sole "leaving the center" indicator, to keep the two
+  // event types visually distinct.
+  const nextMonthStartIso = addMonthsIso(monthStartIso, 1);
+  const nextMonthEndIso = lastDayOfMonth(nextMonthStartIso);
+  const departingNextMonth = events.find(e =>
+    e.type === 'transition' && e.targetClassroomId !== classroomId &&
+    e.effectiveDate >= nextMonthStartIso && e.effectiveDate <= nextMonthEndIso
+  );
+  if (departingNextMonth) return 'departing';
+
   return null;
+}
+
+// Roster for a (classroom, month) pair. Includes children currently in the
+// classroom at end of month (the "normal" case) AND children who withdrew
+// during this month from this classroom (so they still appear visually in
+// the column where their disenrollment happened, with the orange state).
+function getRosterForClassroomMonth(classroomId, monthStartIso, monthEndIso) {
+  return enrollChildren.filter(c => {
+    // Regular case: in this classroom at end of month
+    if (getClassroomForChildOnDate(c, monthEndIso) === classroomId) return true;
+    // Special case: withdrew this month from this classroom — keep them visible
+    // in their pre-withdrawal classroom so we can mark them orange.
+    const events = getMoveEventsForChild(c.id);
+    const withdrawalThisMonth = events.find(e =>
+      e.type === 'withdrawal' &&
+      e.effectiveDate >= monthStartIso && e.effectiveDate <= monthEndIso
+    );
+    if (!withdrawalThisMonth) return false;
+    // Resolve the pre-withdrawal classroom by replaying events up to (but not
+    // including) the withdrawal date — same logic as getClassroomForChildOnDate
+    // but stopping one event short.
+    let classroom = null;
+    for (const e of events) {
+      if (e.effectiveDate >= withdrawalThisMonth.effectiveDate) break;
+      if (e.type === 'new_start' || e.type === 'transition') classroom = e.targetClassroomId;
+      else if (e.type === 'withdrawal') classroom = null;
+    }
+    return classroom === classroomId;
+  }).sort((a, b) => {
+    // Same youngest-first sort as getRosterForClassroomOnDate.
+    if (!a.dob && !b.dob) return a.name.localeCompare(b.name);
+    if (!a.dob) return 1;
+    if (!b.dob) return -1;
+    const cmp = b.dob.localeCompare(a.dob);
+    return cmp !== 0 ? cmp : a.name.localeCompare(b.name);
+  });
 }
 
 /* === Roster view === */
@@ -3842,17 +3913,9 @@ function renderRosterView() {
   for (let i = 0; i < 12; i++) {
     months.push(addMonthsIso(startIso, i));
   }
-  // Compute "today" date once — used for the 30-day cell-state lookahead.
+  // Today reference, used only to highlight "this month" in the header.
   const todayIsoStr = todayIso();
   const thisMonthIso = firstOfMonth(todayIsoStr);
-  const horizonIso = addMonthsIso(todayIsoStr, 1); // ~30 day window
-
-  // The cell-state classes (planned / approaching) only apply to TODAY'S column
-  // (or the leftmost column if today isn't in the visible window). This way the
-  // color coding says "this child needs attention right now", not "every cell
-  // forever."
-  const todayColumnIdx = months.findIndex(m => m === thisMonthIso);
-  const highlightColumnIdx = todayColumnIdx === -1 ? 0 : todayColumnIdx;
 
   const grid = document.getElementById('roster-grid');
   // CSS grid-template-columns: first column = label, then one per month.
@@ -3860,10 +3923,13 @@ function renderRosterView() {
   let html = '';
 
   // Pre-compute total enrollment per month, so we can show it in each header cell.
-  // "Total" here = sum of roster counts across all classrooms for the given as-of date.
+  // "Total" here = sum of visible children across all classrooms for the month,
+  // which matches what's rendered in each cell (including disenrolling kids
+  // shown in their pre-withdrawal classroom).
   const monthTotals = months.map(m => {
-    const asOf = lastDayOfMonth(m);
-    return CLASSROOMS.reduce((sum, c) => sum + getRosterForClassroomOnDate(c.id, asOf).length, 0);
+    const monthStart = m;
+    const monthEnd = lastDayOfMonth(m);
+    return CLASSROOMS.reduce((sum, c) => sum + getRosterForClassroomMonth(c.id, monthStart, monthEnd).length, 0);
   });
 
   // Header row: corner + month labels with total enrollment underneath.
@@ -3890,33 +3956,25 @@ function renderRosterView() {
     `;
     for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
       const m = months[monthIdx];
-      // Use the LAST day of the month as the reference date — so any moves
-      // (including "Move Now" actions taken today, or scheduled mid-month
-      // transitions) are reflected in the column for the month they happen.
-      // A move effective May 13 should show up in the May column, not June.
-      const asOfM = lastDayOfMonth(m);
-      const roster = getRosterForClassroomOnDate(classroom.id, asOfM);
+      // Each column represents a full month; we use start-of-month + end-of-month
+      // bounds to detect events that happen WITHIN the month (for color states)
+      // and end-of-month as the asOf for age display.
+      const monthStart = m;
+      const monthEnd = lastDayOfMonth(m);
+      const roster = getRosterForClassroomMonth(classroom.id, monthStart, monthEnd);
       const count = roster.length;
       let countCls = '';
       if (count > classroom.capacity) countCls = 'is-over-capacity';
       else if (count === classroom.capacity) countCls = 'is-at-capacity';
 
-      // Only the "today" column gets the planned/approaching cell-state classes.
-      const isHighlightColumn = monthIdx === highlightColumnIdx;
-
-      // Render each enrolled child as a roster-child button.
+      // Render each enrolled child as a roster-child button, with per-cell state.
       const childrenHtml = roster.map(child => {
-        const ageMonths = diffMonths(child.dob, asOfM);
+        const ageMonths = diffMonths(child.dob, monthEnd);
         const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
-        // Per-child cell state — only computed for the highlight column.
-        let cellStateCls = '';
-        if (isHighlightColumn) {
-          const state = computeRosterCellState(child, classroom.id, todayIsoStr, horizonIso);
-          if (state === 'planned')          cellStateCls = 'is-planned';
-          else if (state === 'approaching') cellStateCls = 'is-approaching';
-        }
+        const state = computeRosterChildState(child, classroom.id, monthStart, monthEnd);
+        const stateCls = state ? ('is-' + state) : '';
         return `
-          <button class="roster-child ${cellStateCls}" data-child-id="${child.id}" type="button"
+          <button class="roster-child ${stateCls}" data-child-id="${child.id}" type="button"
                   title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
             <span class="roster-child-name">${escapeHtml(child.name)}</span>
             <span class="roster-child-age">${escapeHtml(ageStr)}</span>
