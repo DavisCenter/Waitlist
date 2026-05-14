@@ -1057,8 +1057,8 @@
      States are mutually exclusive; priority (when multiple could apply):
      disenrolling > new-start > arriving > departing. */
   .roster-child.is-departing {
-    background: rgba(74, 111, 165, 0.10);
-    border-left: 3px solid #4a6fa5;
+    background: rgba(59, 130, 246, 0.28);
+    border-left: 3px solid #2563eb;
     padding-left: 7px;
   }
   .roster-child.is-arriving {
@@ -1067,20 +1067,20 @@
     padding-left: 7px;
   }
   .roster-child.is-disenrolling {
-    background: rgba(234, 88, 12, 0.14);
+    background: rgba(249, 115, 22, 0.32);
     border-left: 3px solid #ea580c;
     padding-left: 7px;
   }
   .roster-child.is-new-start {
-    background: rgba(202, 138, 4, 0.16);
+    background: rgba(250, 204, 21, 0.45);
     border-left: 3px solid #ca8a04;
     padding-left: 7px;
   }
   /* Keep hover affordance distinct even when color-coded. */
-  .roster-child.is-departing:hover    { background: rgba(74, 111, 165, 0.18);  border-color: #4a6fa5; }
+  .roster-child.is-departing:hover    { background: rgba(59, 130, 246, 0.40);  border-color: #2563eb; }
   .roster-child.is-arriving:hover     { background: rgba(139, 92, 246, 0.20);  border-color: #8b5cf6; }
-  .roster-child.is-disenrolling:hover { background: rgba(234, 88, 12, 0.22);   border-color: #ea580c; }
-  .roster-child.is-new-start:hover    { background: rgba(202, 138, 4, 0.24);   border-color: #ca8a04; }
+  .roster-child.is-disenrolling:hover { background: rgba(249, 115, 22, 0.45);  border-color: #ea580c; }
+  .roster-child.is-new-start:hover    { background: rgba(250, 204, 21, 0.60);  border-color: #ca8a04; }
 
   /* === Roster legend (visual key for color-coded cells) === */
   .roster-legend {
@@ -1103,10 +1103,10 @@
     height: 10px;
     border-radius: 50%;
   }
-  .roster-legend-dot.is-new-start    { background: #ca8a04; }
+  .roster-legend-dot.is-new-start    { background: #facc15; border: 1px solid #ca8a04; }
   .roster-legend-dot.is-arriving     { background: #8b5cf6; }
-  .roster-legend-dot.is-departing    { background: #4a6fa5; }
-  .roster-legend-dot.is-disenrolling { background: #ea580c; }
+  .roster-legend-dot.is-departing    { background: #2563eb; }
+  .roster-legend-dot.is-disenrolling { background: #f97316; }
 
   /* === Waitlist "ready to start" highlight === */
   .entry.is-ready-to-start { box-shadow: inset 3px 0 0 #2d7a3d; }
