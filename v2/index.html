@@ -139,6 +139,47 @@
     padding: 20px 24px;
   }
 
+  /* Split-view layout — Projections on the left, Waitlist panel on the right.
+     Only applies when splitView is on AND currentMode is 'roster'. */
+  main.is-split-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 30%);
+    gap: 20px;
+    align-items: start;
+  }
+  main.is-split-view #roster-view {
+    display: block;
+    min-width: 0;
+  }
+  main.is-split-view #main-view {
+    display: block;
+    min-width: 0;
+    border-left: 1px solid var(--border);
+    padding-left: 16px;
+    max-height: calc(100vh - 200px);
+    overflow: auto;
+  }
+  main.is-split-view #main-view .time-travel-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  main.is-split-view #main-view .classroom-section {
+    box-shadow: none;
+  }
+  /* Stack vertically on narrower screens — split is awkward below ~1100px wide. */
+  @media (max-width: 1100px) {
+    main.is-split-view {
+      grid-template-columns: 1fr;
+    }
+    main.is-split-view #main-view {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      max-height: none;
+    }
+  }
+
   .page-empty {
     background: var(--surface);
     border: 1px dashed var(--border-strong);
@@ -2634,6 +2675,11 @@ let cellActionClickedMonth = null;
 let editingMoveId = null;
 // Which month the calendar modal is currently showing (ISO first-of-month).
 let calendarMonthIso = null;
+// Split-view flag — when true on the Projections view, the waitlist renders
+// alongside the projections grid in a right-side panel. Persisted so the
+// admin's last preference survives reloads.
+const SPLIT_VIEW_KEY = 'projections_split_view_v1';
+let splitView = (storage.get(SPLIT_VIEW_KEY) === '1');
 // Persisted undo stack — holds up to UNDO_STACK_MAX recent destructive actions
 // (move add/edit/delete, disenroll, back-to-waitlist) so the user can step
 // backwards through them. Saved to localStorage so closing/reopening the tab
@@ -5568,20 +5614,39 @@ render = function() {
   renderModeNav();
   updatePageHeader();
   updateHeaderActions();
+  // Apply / remove the split-view layout class on <main>. Only active on roster mode.
+  const mainEl = document.querySelector('main');
+  const splitActive = splitView && currentMode === 'roster';
+  if (mainEl) mainEl.classList.toggle('is-split-view', splitActive);
+
   if (currentMode === 'waitlist') {
-    // Show classroom-nav, hide the new view containers.
     document.getElementById('classroom-nav').style.display = '';
     document.getElementById('roster-view').style.display = 'none';
     document.getElementById('children-view').style.display = 'none';
-    // Delegate to the original waitlist render.
     originalRender();
     return;
   }
   // Non-waitlist modes hide the classroom sub-nav.
   document.getElementById('classroom-nav').style.display = 'none';
-  if (currentMode === 'roster')   renderRosterView();
+  if (currentMode === 'roster') {
+    renderRosterView();
+    if (splitActive) {
+      // Re-show #main-view (renderRosterView hides it) and render the waitlist
+      // into it so the admin can see both at once.
+      document.getElementById('main-view').style.display = '';
+      originalRender();
+      injectStartChildButtons();
+    }
+  }
   if (currentMode === 'children') renderChildrenView();
 };
+
+// Toggle split view on Projections. Persists preference to localStorage.
+function toggleSplitView() {
+  splitView = !splitView;
+  storage.set(SPLIT_VIEW_KEY, splitView ? '1' : '0');
+  render();
+}
 
 function updatePageHeader() {
   const title = document.getElementById('page-title');
@@ -5616,8 +5681,12 @@ function updateHeaderActions() {
     document.getElementById('add-child-btn').addEventListener('click', openAddChildModal);
   } else if (currentMode === 'roster') {
     actions.innerHTML = `
+      <button id="toggle-split-view-btn" title="Toggle split view with the waitlist alongside Projections">
+        ${splitView ? '← Hide waitlist' : 'Show waitlist →'}
+      </button>
       <button id="roster-add-child-btn" class="primary">+ Add Child</button>
     `;
+    document.getElementById('toggle-split-view-btn').addEventListener('click', toggleSplitView);
     document.getElementById('roster-add-child-btn').addEventListener('click', openAddChildModal);
   }
 }
