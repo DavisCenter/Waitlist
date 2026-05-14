@@ -2442,6 +2442,10 @@ let currentMode = storage.get(CURRENT_MODE_KEY) || 'waitlist';
 if (!MODES.includes(currentMode)) currentMode = 'waitlist';
 // Currently focused child id in the cell-action popover (set when opened).
 let cellActionChildId = null;
+// The clicked column's month (ISO first-of-month). Used to compute the effective
+// date for Move Back / Move Forward — Back goes to the previous month, Forward
+// to the next month. Defaults to today's month if missing.
+let cellActionClickedMonth = null;
 // Session-scoped undo state — holds the LAST destructive action (disenroll or
 // back-to-waitlist) so the user can one-click reverse it. Cleared when the
 // timer expires (~10s), when dismissed, or when undone.
@@ -3573,6 +3577,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Esc / dialog "cancel" event also clears the focused child id.
   document.getElementById('cell-action-modal').addEventListener('close', () => {
     cellActionChildId = null;
+    cellActionClickedMonth = null;
   });
 
   // Roster toolbar.
@@ -4015,7 +4020,7 @@ function renderRosterView() {
         const state = computeRosterChildState(child, classroom.id, monthStart, monthEnd);
         const stateCls = state ? ('is-' + state) : '';
         return `
-          <button class="roster-child ${stateCls}" data-child-id="${child.id}" type="button"
+          <button class="roster-child ${stateCls}" data-child-id="${child.id}" data-month="${m}" type="button"
                   title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
             <span class="roster-child-name">${escapeHtml(child.name)}</span>
             <span class="roster-child-age">${escapeHtml(ageStr)}</span>
@@ -4043,9 +4048,10 @@ function renderRosterView() {
 
   grid.innerHTML = html;
 
-  // Wire child buttons → open compact cell-action popover.
+  // Wire child buttons → open compact cell-action popover. We pass the column's
+  // month so Move Back / Move Forward act relative to the clicked cell, not today.
   grid.querySelectorAll('[data-child-id]').forEach(btn => {
-    btn.addEventListener('click', () => openCellActionPopover(btn.dataset.childId));
+    btn.addEventListener('click', () => openCellActionPopover(btn.dataset.childId, btn.dataset.month));
   });
 }
 
@@ -4057,41 +4063,58 @@ let cellActionScheduleDirection = 1;
 // Opens a small dialog showing the child's name, current room, age, plus an
 // immediate-move row and an inline "schedule for a future date" form.
 // Persists via the normal saveEnrollMoves() path.
-function openCellActionPopover(childId) {
+function openCellActionPopover(childId, clickedMonthIso) {
   const child = enrollChildren.find(c => c.id === childId);
   if (!child) return;
   cellActionChildId = childId;
-
   const today = todayIso();
-  const currentRoomId = getClassroomForChildOnDate(child, today);
+  // Clicked month determines context for Move Back / Move Forward. Fall back
+  // to today's first-of-month if no month was passed (defensive).
+  cellActionClickedMonth = clickedMonthIso || firstOfMonth(today);
+
+  const clickedMonthEnd = lastDayOfMonth(cellActionClickedMonth);
+  const clickedMonthLabel = monthLabel(cellActionClickedMonth);
+  // Previous/next month relative to the clicked month — used as effective
+  // dates for Move Back / Move Forward.
+  const prevMonthIso = addMonthsIso(cellActionClickedMonth, -1);
+  const nextMonthIso = addMonthsIso(cellActionClickedMonth, 1);
+  const prevMonthLabel = monthLabel(prevMonthIso);
+  const nextMonthLabel = monthLabel(nextMonthIso);
+
+  // The child's room AS OF the clicked month — drives prev/next classroom choice.
+  const currentRoomId = getClassroomForChildOnDate(child, clickedMonthEnd);
   const currentRoom = currentRoomId ? CLASSROOMS.find(c => c.id === currentRoomId) : null;
   const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
   const prevRoom = currentIdx > 0 ? CLASSROOMS[currentIdx - 1] : null;
   const nextRoom = (currentIdx !== -1 && currentIdx < CLASSROOMS.length - 1) ? CLASSROOMS[currentIdx + 1] : null;
 
-  const ageStr = child.dob ? formatAge(diffMonths(child.dob, today)) : 'age unknown';
+  const ageStr = child.dob ? formatAge(diffMonths(child.dob, clickedMonthEnd)) : 'age unknown';
   const roomLabel = currentRoom ? currentRoom.name : 'Not in a room';
 
   document.getElementById('cell-action-name').textContent = child.name;
   document.getElementById('cell-action-meta').innerHTML = `
-    <strong>${escapeHtml(roomLabel)}</strong> &middot; ${escapeHtml(ageStr)}
+    <strong>${escapeHtml(roomLabel)}</strong> in ${escapeHtml(clickedMonthLabel)} &middot; ${escapeHtml(ageStr)}
   `;
 
   const backBtn = document.getElementById('cell-action-back-btn');
   const forwardBtn = document.getElementById('cell-action-forward-btn');
 
-  // Move Back button — disabled if already in infant_a (or not in any room).
+  // Move Back button — moves the child to the previous classroom, effective
+  // the FIRST day of the month before the clicked month.
   const backDisabled = !prevRoom || currentRoomId === 'infant_a';
   backBtn.disabled = backDisabled;
+  backBtn.innerHTML = `&larr; Move Back to ${escapeHtml(prevMonthLabel)}`;
   backBtn.title = prevRoom
-    ? `Move to ${prevRoom.name} effective today`
+    ? `Move ${child.name} to ${prevRoom.name} effective ${prevMonthLabel}`
     : 'Already in the youngest classroom';
 
-  // Move Forward button — disabled if already in prek (or not in any room).
+  // Move Forward button — moves the child to the next classroom, effective
+  // the FIRST day of the month after the clicked month.
   const forwardDisabled = !nextRoom || currentRoomId === 'prek';
   forwardBtn.disabled = forwardDisabled;
+  forwardBtn.innerHTML = `Move Forward to ${escapeHtml(nextMonthLabel)} &rarr;`;
   forwardBtn.title = nextRoom
-    ? `Move to ${nextRoom.name} effective today`
+    ? `Move ${child.name} to ${nextRoom.name} effective ${nextMonthLabel}`
     : 'Already in the oldest classroom';
 
   // Direction pills (for the scheduled-move row) — mirror the immediate-button
@@ -4128,6 +4151,7 @@ function closeCellActionPopover() {
   const dlg = document.getElementById('cell-action-modal');
   if (dlg.open) dlg.close();
   cellActionChildId = null;
+  cellActionClickedMonth = null;
 }
 
 // Sets the active direction pill in the schedule-row. If the requested
@@ -4194,8 +4218,17 @@ function computeTransitionWeek(effectiveDateIso) {
 
 // Immediate move — used by the "Move Now" buttons. Effective date is today,
 // transitionWeek is null (a same-day move doesn't need a transition window).
+// Contextual Move Back / Move Forward — uses the clicked column's month to
+// compute the effective date. Back goes to the previous month, Forward to the
+// next month, so the change is visible in the month the admin clicked on AND
+// later columns. Direction = -1 (back) or +1 (forward).
 function applyImmediateMove(direction) {
-  applyCellActionMove(direction, todayIso(), null);
+  if (!cellActionClickedMonth) return;
+  const targetMonthIso = direction === -1
+    ? addMonthsIso(cellActionClickedMonth, -1)
+    : addMonthsIso(cellActionClickedMonth, 1);
+  // Effective date = first day of the target month.
+  applyCellActionMove(direction, targetMonthIso, null);
 }
 
 // Scheduled future move — used by the inline Schedule form.
@@ -4206,12 +4239,19 @@ function applyScheduledMove(direction, effectiveDate, transitionWeek) {
 
 // Shared mover. `effectiveDate` and `transitionWeek` are required (callers
 // should pre-compute them via applyImmediateMove / applyScheduledMove).
+// "Current room" is computed AS OF the clicked column's month, so back/forward
+// is relative to where the child is in that month — not where they are today.
 function applyCellActionMove(direction, effectiveDate, transitionWeek) {
   if (!cellActionChildId) return;
   const child = enrollChildren.find(c => c.id === cellActionChildId);
   if (!child) return;
-  const today = todayIso();
-  const currentRoomId = getClassroomForChildOnDate(child, today);
+  // Reference month for "current room": the clicked column's month, or today
+  // as a fallback. Using end-of-month so any transitions within that month
+  // have already applied.
+  const referenceDate = cellActionClickedMonth
+    ? lastDayOfMonth(cellActionClickedMonth)
+    : todayIso();
+  const currentRoomId = getClassroomForChildOnDate(child, referenceDate);
   const currentIdx = currentRoomId ? CLASSROOMS.findIndex(c => c.id === currentRoomId) : -1;
   if (currentIdx === -1) return;
   const targetRoom = CLASSROOMS[currentIdx + direction];
