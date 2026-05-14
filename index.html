@@ -1714,8 +1714,11 @@
         <div id="child-history-list" class="move-history"></div>
       </div>
 
-      <!-- Inline schedule-move form (shown after clicking "+ Schedule move") -->
+      <!-- Inline schedule-move form (shown after clicking "+ Schedule move" or
+           "Edit" on an existing event). The form is reused for both flows;
+           editingMoveId distinguishes them. -->
       <div id="schedule-move-form" style="display:none; margin-top:14px; padding:14px; background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm);">
+        <div id="schedule-move-heading" style="font-weight:600; font-size:13px; margin-bottom:10px; color:var(--text);">Schedule a move</div>
         <div class="form-row">
           <div class="form-field">
             <label>Type</label>
@@ -2496,6 +2499,10 @@ let cellActionChildId = null;
 // date for Move Back / Move Forward — Back goes to the previous month, Forward
 // to the next month. Defaults to today's month if missing.
 let cellActionClickedMonth = null;
+// When non-null, the schedule-move form is editing an existing move event in
+// place rather than creating a new one. Cleared whenever the form is opened
+// fresh (via "+ Schedule move") or closed.
+let editingMoveId = null;
 // Session-scoped undo state — holds the LAST destructive action (disenroll or
 // back-to-waitlist) so the user can one-click reverse it. Cleared when the
 // timer expires (~10s), when dismissed, or when undone.
@@ -3538,6 +3545,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('schedule-move-btn').addEventListener('click', openScheduleMoveForm);
   document.getElementById('schedule-move-cancel-btn').addEventListener('click', () => {
     document.getElementById('schedule-move-form').style.display = 'none';
+    editingMoveId = null;
   });
   document.getElementById('schedule-move-save-btn').addEventListener('click', saveScheduleMove);
   document.getElementById('withdraw-btn').addEventListener('click', withdrawCurrentChild);
@@ -4522,15 +4530,23 @@ function renderChildHistory(childId) {
           ${e.transitionWeek ? `<span style="color:var(--text-muted); margin-left:6px;">Week of ${escapeHtml(e.transitionWeek)}</span>` : ''}
           ${e.notes ? `<div class="move-event-notes">${escapeHtml(e.notes)}</div>` : ''}
         </div>
-        <button type="button" class="move-event-delete" data-move-id="${e.id}" title="Delete this move event">Delete</button>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="move-event-edit"   data-move-edit-id="${e.id}"   title="Edit this move event">Edit</button>
+          <button type="button" class="move-event-delete" data-move-delete-id="${e.id}" title="Delete this move event">Delete</button>
+        </div>
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('[data-move-id]').forEach(btn => {
+  // Wire Edit buttons — open the schedule-move form in edit mode.
+  list.querySelectorAll('[data-move-edit-id]').forEach(btn => {
+    btn.addEventListener('click', () => openEditMoveForm(btn.dataset.moveEditId));
+  });
+  // Wire Delete buttons — confirm, then drop the event and recompute.
+  list.querySelectorAll('[data-move-delete-id]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!confirm('Delete this move event? The child\'s history will be recomputed.')) return;
-      const moveId = btn.dataset.moveId;
+      const moveId = btn.dataset.moveDeleteId;
       enrollMoves = enrollMoves.filter(m => m.id !== moveId);
       saveEnrollMoves();
       refreshAllCachedClassrooms();
@@ -4585,13 +4601,17 @@ function handleChildFormSubmit(e) {
 }
 
 /* === Schedule-move form (inside child modal) === */
+// Open the schedule-move form in CREATE mode — for adding a brand-new event.
 function openScheduleMoveForm() {
   if (!editingChildId) {
     alert('Save the child first before scheduling moves.');
     return;
   }
+  editingMoveId = null;
   const formEl = document.getElementById('schedule-move-form');
-  // Reset.
+  document.getElementById('schedule-move-heading').textContent = 'Schedule a move';
+  document.getElementById('schedule-move-save-btn').textContent = 'Save move';
+  // Reset to defaults.
   document.getElementById('schedule-move-type').value = 'transition';
   document.getElementById('schedule-move-date').value = firstOfNextMonth(todayIso());
   document.getElementById('schedule-move-week').value = '';
@@ -4599,8 +4619,31 @@ function openScheduleMoveForm() {
   // Populate classroom dropdown.
   const sel = document.getElementById('schedule-move-classroom');
   sel.innerHTML = CLASSROOMS.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.disabled = false;
   formEl.style.display = 'block';
-  // Scroll the form into view inside the modal body.
+  formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Open the schedule-move form in EDIT mode — pre-populated with an existing
+// move event so the admin can adjust it in place.
+function openEditMoveForm(moveId) {
+  if (!editingChildId) return;
+  const move = enrollMoves.find(m => m.id === moveId);
+  if (!move) return;
+  editingMoveId = moveId;
+  const formEl = document.getElementById('schedule-move-form');
+  document.getElementById('schedule-move-heading').textContent = 'Edit move';
+  document.getElementById('schedule-move-save-btn').textContent = 'Update move';
+  document.getElementById('schedule-move-type').value = move.type;
+  document.getElementById('schedule-move-date').value = move.effectiveDate || '';
+  document.getElementById('schedule-move-week').value = move.transitionWeek || '';
+  document.getElementById('schedule-move-notes').value = move.notes || '';
+  const sel = document.getElementById('schedule-move-classroom');
+  sel.innerHTML = CLASSROOMS.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  if (move.targetClassroomId) sel.value = move.targetClassroomId;
+  // Withdrawal events have no target classroom — disable the dropdown.
+  sel.disabled = (move.type === 'withdrawal');
+  formEl.style.display = 'block';
   formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -4615,27 +4658,49 @@ function saveScheduleMove() {
     alert('Please pick an effective date.');
     return;
   }
-  enrollMoves.push({
-    id: enrollUuid('move'),
-    childId: editingChildId,
-    type,
-    targetClassroomId: type === 'withdrawal' ? null : classroomId,
-    effectiveDate: date,
-    transitionWeek: week || null,
-    notes,
-    createdAt: new Date().toISOString(),
-    approved: true
-  });
+
+  if (editingMoveId) {
+    // EDIT mode — update the existing event in place. Keep its id and createdAt;
+    // refresh the other fields.
+    const idx = enrollMoves.findIndex(m => m.id === editingMoveId);
+    if (idx === -1) {
+      alert('Could not find this move event — it may have been deleted.');
+      editingMoveId = null;
+      return;
+    }
+    enrollMoves[idx] = {
+      ...enrollMoves[idx],
+      type,
+      targetClassroomId: type === 'withdrawal' ? null : classroomId,
+      effectiveDate: date,
+      transitionWeek: week || null,
+      notes
+    };
+  } else {
+    // CREATE mode — push a fresh event.
+    enrollMoves.push({
+      id: enrollUuid('move'),
+      childId: editingChildId,
+      type,
+      targetClassroomId: type === 'withdrawal' ? null : classroomId,
+      effectiveDate: date,
+      transitionWeek: week || null,
+      notes,
+      createdAt: new Date().toISOString(),
+      approved: true
+    });
+  }
   saveEnrollMoves();
   refreshAllCachedClassrooms();
-  // If we withdrew, update the child's status.
+  // If a withdrawal is now in the past, sync the child's status.
   if (type === 'withdrawal' && date <= todayIso()) {
-    const idx = enrollChildren.findIndex(c => c.id === editingChildId);
-    if (idx !== -1) {
-      enrollChildren[idx].status = 'withdrawn';
+    const cidx = enrollChildren.findIndex(c => c.id === editingChildId);
+    if (cidx !== -1 && enrollChildren[cidx].status !== 'withdrawn') {
+      enrollChildren[cidx].status = 'withdrawn';
       saveEnrollChildren();
     }
   }
+  editingMoveId = null;
   document.getElementById('schedule-move-form').style.display = 'none';
   renderChildHistory(editingChildId);
   renderModeNav();
