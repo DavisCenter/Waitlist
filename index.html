@@ -888,8 +888,12 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
-    overflow-x: auto;
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
+    /* Vertically bounded so the date header row stays sticky to its top as the
+       admin scrolls through tall classroom lists. Subtract the page header +
+       time-travel bar + legend + breathing room. */
+    max-height: calc(100vh - 230px);
   }
   .roster-grid {
     display: grid;
@@ -1057,8 +1061,8 @@
      States are mutually exclusive; priority (when multiple could apply):
      disenrolling > new-start > arriving > departing. */
   .roster-child.is-departing {
-    background: rgba(59, 130, 246, 0.28);
-    border-left: 3px solid #2563eb;
+    background: rgba(236, 72, 153, 0.28);
+    border-left: 3px solid #db2777;
     padding-left: 7px;
   }
   .roster-child.is-arriving {
@@ -1077,7 +1081,7 @@
     padding-left: 7px;
   }
   /* Keep hover affordance distinct even when color-coded. */
-  .roster-child.is-departing:hover    { background: rgba(59, 130, 246, 0.40);  border-color: #2563eb; }
+  .roster-child.is-departing:hover    { background: rgba(236, 72, 153, 0.42);  border-color: #db2777; }
   .roster-child.is-arriving:hover     { background: rgba(139, 92, 246, 0.20);  border-color: #8b5cf6; }
   .roster-child.is-disenrolling:hover { background: rgba(249, 115, 22, 0.45);  border-color: #ea580c; }
   .roster-child.is-new-start:hover    { background: rgba(250, 204, 21, 0.60);  border-color: #ca8a04; }
@@ -1105,7 +1109,7 @@
   }
   .roster-legend-dot.is-new-start    { background: #facc15; border: 1px solid #ca8a04; }
   .roster-legend-dot.is-arriving     { background: #8b5cf6; }
-  .roster-legend-dot.is-departing    { background: #2563eb; }
+  .roster-legend-dot.is-departing    { background: #ec4899; }
   .roster-legend-dot.is-disenrolling { background: #f97316; }
 
   /* === Waitlist "ready to start" highlight === */
