@@ -1701,6 +1701,86 @@
     max-width: 720px;
   }
 
+  /* === Preview placement (Feature 2) === */
+  .roster-child.is-preview {
+    border: 2px dashed #ca8a04;
+    background: rgba(250, 204, 21, 0.18);
+    position: relative;
+  }
+  .roster-child.is-preview::after {
+    content: 'PREVIEW';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #ca8a04;
+    background: rgba(250, 204, 21, 0.3);
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  /* Corner-cell legend entry — small swatch to match the on-grid PREVIEW style. */
+  .roster-corner-key-item.is-preview {
+    color: #ca8a04;
+  }
+
+  .projections-preview-banners {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: -8px 2px 12px;
+  }
+  .projections-preview-banner {
+    background: rgba(250, 204, 21, 0.10);
+    border: 1px solid #ca8a04;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .projections-preview-banner-message { font-weight: 500; }
+  .projections-preview-banner-message strong { color: #ca8a04; margin-right: 6px; }
+  .projections-preview-banner-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .projections-preview-banner-actions button {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  /* === Waitlist history (Feature 1) === */
+  .waitlist-history-row {
+    display: grid;
+    grid-template-columns: 90px 28px 1fr;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    align-items: center;
+  }
+  .waitlist-history-row:last-child { border-bottom: none; }
+  .waitlist-history-time {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .waitlist-history-icon {
+    text-align: center;
+    font-size: 14px;
+  }
+  .waitlist-history-empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
   /* === Responsive === */
   @media (max-width: 900px) {
     .entry {
@@ -1991,6 +2071,52 @@
   </form>
 </dialog>
 
+<!-- Waitlist History modal — audit trail of all changes to the waitlist. -->
+<dialog id="waitlist-history-modal">
+  <div class="modal-header">
+    <h2>Waitlist history</h2>
+    <button type="button" class="close-btn" id="close-waitlist-history-btn" aria-label="Close">&times;</button>
+  </div>
+  <div class="modal-body" id="waitlist-history-body">
+    <div class="waitlist-history-empty">No waitlist changes yet.</div>
+  </div>
+</dialog>
+
+<!-- "View on projections" — tentatively place a waitlist child in Projections to preview capacity/fit. -->
+<dialog id="preview-on-projections-modal">
+  <form id="preview-on-projections-form" novalidate>
+    <div class="modal-header">
+      <h2>Preview on Projections</h2>
+      <button type="button" class="close-btn" id="close-preview-on-projections-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" id="preview-name-display" style="
+        background: var(--surface-soft); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+        <span style="font-weight:600;" id="preview-child-name">—</span>
+        <span style="color:var(--text-muted); font-size:12px;" id="preview-child-meta"></span>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Effective start date <span class="req">*</span></label>
+          <input type="date" id="preview-start-date" required>
+        </div>
+        <div class="form-field">
+          <label>Target classroom <span class="req">*</span></label>
+          <select id="preview-classroom" class="form-input"></select>
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); background:var(--surface-soft); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;">
+        This places the child on Projections as a preview so you can see the capacity impact. They stay on the waitlist until you confirm.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="preview-cancel-btn">Cancel</button>
+      <button type="submit" class="primary">Preview placement</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Month calendar modal — opens when admin clicks a month header on the
      Projections grid. Shows a Mon-Fri calendar for that month with planned
      transitions, new starts, and withdrawals on the dates they happen. -->
@@ -2161,6 +2287,11 @@ const ENROLL_SEEDED_KEY    = 'enrollment_seeded_v1';
 const ENROLL_CHILDREN_SORT_KEY = 'enrollment_children_sort_v1';
 const ROSTER_START_KEY     = 'enrollment_roster_start_v1';
 const CURRENT_MODE_KEY     = 'enrollment_current_mode_v1';
+
+// Waitlist history (audit trail) storage. Capped at WAITLIST_HISTORY_MAX entries
+// — the oldest is dropped via shift() when we push past the cap.
+const WAITLIST_HISTORY_KEY = 'waitlist_history_v1';
+const WAITLIST_HISTORY_MAX = 200;
 
 // Modes for the top-level nav. 'waitlist' preserves all existing behavior.
 const MODES = ['waitlist', 'roster', 'children'];
@@ -2693,6 +2824,9 @@ const UNDO_TOAST_AUTO_MS = 10000;
 const UNDO_TIMEOUT_MS = UNDO_TOAST_AUTO_MS;
 let undoStack = loadUndoStack(); // restored across page loads; capped at UNDO_STACK_MAX
 let undoToastTimerId = null;
+// Waitlist audit trail — every add/edit/delete/contact/tour/start/return logs one row.
+// Capped at WAITLIST_HISTORY_MAX (200); oldest dropped via shift() when exceeded.
+let waitlistHistory = loadWaitlistHistory();
 
 /* === Storage === */
 function loadEntries() {
@@ -2744,6 +2878,32 @@ function loadChildrenSort() {
 }
 function saveChildrenSort() {
   try { storage.set(ENROLL_CHILDREN_SORT_KEY, JSON.stringify(childrenSort)); } catch {}
+}
+
+/* === Waitlist history (audit trail) === */
+function loadWaitlistHistory() {
+  try {
+    const raw = JSON.parse(storage.get(WAITLIST_HISTORY_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch { return []; }
+}
+function saveWaitlistHistory() {
+  try { storage.set(WAITLIST_HISTORY_KEY, JSON.stringify(waitlistHistory)); } catch {}
+}
+// Append a single audit-trail entry. Cap at WAITLIST_HISTORY_MAX (drop oldest).
+function logWaitlistHistory({ action, entryId, childName, summary }) {
+  const entry = {
+    id: 'wlh_' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36),
+    timestamp: new Date().toISOString(),
+    action,
+    entryId: entryId || null,
+    childName: childName || '',
+    summary: summary || ''
+  };
+  waitlistHistory.push(entry);
+  while (waitlistHistory.length > WAITLIST_HISTORY_MAX) waitlistHistory.shift();
+  saveWaitlistHistory();
+  return entry;
 }
 
 function uuid() {
@@ -2832,20 +2992,71 @@ function addEntry(data) {
   const entry = normalizeEntry({ ...data, id: uuid(), dateAdded: new Date().toISOString() });
   entries.push(entry);
   saveEntries();
+  logWaitlistHistory({
+    action: 'added',
+    entryId: entry.id,
+    childName: entry.childName,
+    summary: `${entry.childName || 'Unnamed child'} added to waitlist`
+  });
   return entry;
 }
 
 function updateEntry(id, data) {
   const idx = entries.findIndex(e => e.id === id);
   if (idx === -1) return null;
-  entries[idx] = normalizeEntry({ ...entries[idx], ...data });
+  const before = entries[idx];
+  const after = normalizeEntry({ ...before, ...data });
+  entries[idx] = after;
   saveEntries();
+  // Detect changed fields so the audit trail is meaningful.
+  const tracked = ['childName', 'childBirthday', 'parentName', 'email', 'phone',
+                   'isASAP', 'preferredStartDate', 'notes'];
+  const changes = tracked.filter(k => (before[k] || '') !== (after[k] || ''));
+  // Contacted / toured changes get their own dedicated log actions so the
+  // history reads naturally.
+  if ((before.lastContacted || '') !== (after.lastContacted || '')) {
+    logWaitlistHistory({
+      action: 'contacted',
+      entryId: after.id,
+      childName: after.childName,
+      summary: after.lastContacted
+        ? `${after.childName} marked contacted ${formatDate(after.lastContacted)}`
+        : `${after.childName} contact date cleared`
+    });
+  }
+  if ((before.touredOn || '') !== (after.touredOn || '')) {
+    logWaitlistHistory({
+      action: 'toured',
+      entryId: after.id,
+      childName: after.childName,
+      summary: after.touredOn
+        ? `${after.childName} tour set to ${formatDate(after.touredOn)}`
+        : `${after.childName} tour date cleared`
+    });
+  }
+  if (changes.length > 0) {
+    logWaitlistHistory({
+      action: 'edited',
+      entryId: after.id,
+      childName: after.childName,
+      summary: `${after.childName} edited (${changes.length} field${changes.length === 1 ? '' : 's'} changed)`
+    });
+  }
   return entries[idx];
 }
 
 function deleteEntry(id) {
+  const before = entries.find(e => e.id === id);
   entries = entries.filter(e => e.id !== id);
   saveEntries();
+  if (before) {
+    logWaitlistHistory({
+      action: 'deleted',
+      entryId: before.id,
+      childName: before.childName,
+      summary: `${before.childName || 'Unnamed child'} removed from waitlist`
+    });
+  }
 }
 
 function markContactedToday(id) {
@@ -2853,6 +3064,12 @@ function markContactedToday(id) {
   if (idx === -1) return;
   entries[idx].lastContacted = todayIso();
   saveEntries();
+  logWaitlistHistory({
+    action: 'contacted',
+    entryId: entries[idx].id,
+    childName: entries[idx].childName,
+    summary: `${entries[idx].childName} marked contacted today`
+  });
   render();
 }
 
@@ -3221,6 +3438,9 @@ function wireSectionEventHandlers(container) {
   // in the script; safe because event listeners only fire after init.)
   if (typeof injectStartChildButtons === 'function') {
     injectStartChildButtons();
+  }
+  if (typeof injectViewOnProjectionsButtons === 'function') {
+    injectViewOnProjectionsButtons();
   }
 }
 
@@ -3798,6 +4018,28 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-child-modal').addEventListener('click', (e) => {
     if (e.target.tagName === 'DIALOG') closeStartChildModal();
   });
+
+  // Waitlist history modal
+  document.getElementById('close-waitlist-history-btn').addEventListener('click', closeWaitlistHistoryModal);
+  document.getElementById('waitlist-history-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closeWaitlistHistoryModal();
+  });
+
+  // Preview-on-projections modal
+  document.getElementById('preview-on-projections-form').addEventListener('submit', handlePreviewOnProjectionsSubmit);
+  document.getElementById('close-preview-on-projections-btn').addEventListener('click', closePreviewOnProjectionsModal);
+  document.getElementById('preview-cancel-btn').addEventListener('click', closePreviewOnProjectionsModal);
+  document.getElementById('preview-on-projections-modal').addEventListener('click', (e) => {
+    if (e.target.tagName === 'DIALOG') closePreviewOnProjectionsModal();
+  });
+  // Reflect age-at-start classroom suggestion as the date changes.
+  document.getElementById('preview-start-date').addEventListener('change', e => {
+    const modal = document.getElementById('preview-on-projections-modal');
+    const entry = entries.find(x => x.id === modal.dataset.waitlistId);
+    if (!entry) return;
+    document.getElementById('preview-classroom').value =
+      getClassroomForEntry(entry, e.target.value);
+  });
   // When the start date changes, suggest a classroom based on age at that date.
   document.getElementById('start-child-date').addEventListener('change', e => {
     const modal = document.getElementById('start-child-modal');
@@ -3935,6 +4177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // The cleanest hook: re-call after render() — but render() returns
   // synchronously, so it's safe.
   injectStartChildButtons();
+  injectViewOnProjectionsButtons();
 });
 
 function updateTimeTravelBar() {
@@ -3991,7 +4234,8 @@ function renderModeNav() {
   const tabs = [
     { id: 'waitlist', label: 'Waitlist',  count: entries.filter(e => (e.status || 'active') === 'active').length, countLabel: 'on waitlist' },
     { id: 'roster',   label: 'Projections', count: enrollChildren.filter(c => c.status === 'enrolled').length, countLabel: 'enrolled' },
-    { id: 'children', label: 'Children',  count: enrollChildren.length, countLabel: 'children' }
+    // Preview placements aren't real enrollments — exclude from the Children badge.
+    { id: 'children', label: 'Children',  count: enrollChildren.filter(c => !c.preview).length, countLabel: 'children' }
   ];
   nav.innerHTML = tabs.map(t => `
     <button class="mode-tab ${currentMode === t.id ? 'is-active' : ''}"
@@ -4370,6 +4614,7 @@ function renderRosterView() {
         <div class="roster-corner-key-item is-arriving">Transitioning in</div>
         <div class="roster-corner-key-item is-departing">Transitioning out</div>
         <div class="roster-corner-key-item is-disenrolling">Disenrolling</div>
+        <div class="roster-corner-key-item is-preview" style="color:#ca8a04;">Preview</div>
       </div>
     </div>
   `;
@@ -4415,10 +4660,12 @@ function renderRosterView() {
         const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
         const state = computeRosterChildState(child, classroom.id, monthStart, monthEnd);
         const stateCls = state ? ('is-' + state) : '';
+        const previewCls = child.preview ? 'is-preview' : '';
+        const previewTitle = child.preview ? ' (preview placement — not yet confirmed)' : '';
         return `
-          <button class="roster-child ${stateCls}" data-child-id="${child.id}" data-month="${m}"
+          <button class="roster-child ${stateCls} ${previewCls}" data-child-id="${child.id}" data-month="${m}"
                   draggable="true" type="button"
-                  title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}. Drag to a different classroom/month to schedule a transition.">
+                  title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}${escapeHtml(previewTitle)}. Drag to a different classroom/month to schedule a transition.">
             <span class="roster-child-name">${escapeHtml(child.name)}</span>
             <span class="roster-child-age">${escapeHtml(ageStr)}</span>
           </button>
@@ -4464,6 +4711,10 @@ function renderRosterView() {
     cell.addEventListener('dragleave', handleRosterDragLeave);
     cell.addEventListener('drop',      handleRosterDrop);
   });
+
+  // Render the preview-placement banner stack above the toolbar (one per
+  // preview child). Banners drive the three resolution actions.
+  renderProjectionsPreviewBanners();
 }
 
 /* === Drag-and-drop ========================================================
@@ -4802,6 +5053,9 @@ function renderChildrenView() {
   const q = (childrenSearch || '').toLowerCase().trim();
   const today = todayIso();
   let rows = enrollChildren.filter(c => {
+    // Preview placements aren't real enrollments yet — hide them here so the
+    // directory only shows committed children.
+    if (c.preview) return false;
     if (childrenFilter === 'enrolled'  && c.status !== 'enrolled')  return false;
     if (childrenFilter === 'withdrawn' && c.status !== 'withdrawn') return false;
     if (q && !c.name.toLowerCase().includes(q)) return false;
@@ -5293,6 +5547,13 @@ function sendCurrentChildBackToWaitlist() {
     { type: 'back_to_waitlist', childId: child.id, moveEventId, waitlistEntryId: newEntry.id, childName: child.name },
     `${child.name} moved back to the waitlist.`
   );
+  // Audit trail — they're back on the active waitlist.
+  logWaitlistHistory({
+    action: 'returned',
+    entryId: newEntry.id,
+    childName: child.name,
+    summary: `${child.name} returned to waitlist from Projections`
+  });
 }
 
 // Shared helper: writes the withdrawal move + status change for a child.
@@ -5604,6 +5865,342 @@ function handleStartChildSubmit(e) {
     { type: 'add_move', moveEventId, childName: entry.childName, summary },
     summary
   );
+  // Audit trail.
+  logWaitlistHistory({
+    action: 'started',
+    entryId: entry.id,
+    childName: entry.childName,
+    summary: `${entry.childName} started in ${roomLabel}${datePart}`
+  });
+}
+
+/* === Feature 2: View on projections (preview placement) ===
+   A waitlist row's "View on projections" button opens a small modal where the
+   admin picks a target classroom + effective start date. On confirm, we create
+   a preview child + preview new_start move event, and the waitlist entry stays
+   active. Banners on Projections drive three resolution actions:
+     - Confirm new start  → strip preview, mark waitlist placed, push undo + log.
+     - Back to waitlist   → delete preview child + moves, keep waitlist active.
+     - Remove from waitlist → delete preview child + moves AND waitlist entry.
+   ============================================================================ */
+
+function openPreviewOnProjectionsModal(waitlistId) {
+  const entry = entries.find(e => e.id === waitlistId);
+  if (!entry) return;
+  const modal = document.getElementById('preview-on-projections-modal');
+  document.getElementById('preview-child-name').textContent = entry.childName || '—';
+  const age = entry.childBirthday ? formatAge(diffMonths(entry.childBirthday, todayIso())) : '—';
+  document.getElementById('preview-child-meta').textContent =
+    ` · Born ${entry.childBirthday ? formatDate(entry.childBirthday) : '—'} · ${age}`;
+  // Default effective date — entry's preferred start (if set) or first of next month.
+  const defaultDate = entry.isASAP ? firstOfNextMonth(todayIso()) :
+    (entry.preferredStartDate || firstOfNextMonth(todayIso()));
+  document.getElementById('preview-start-date').value = defaultDate;
+  // Populate the classroom select with the same options as the start-child modal.
+  const sel = document.getElementById('preview-classroom');
+  sel.innerHTML = CLASSROOMS.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  // Default to the classroom that matches the child's age at the effective date.
+  sel.value = getClassroomForEntry(entry, defaultDate);
+  modal.dataset.waitlistId = waitlistId;
+  modal.showModal();
+}
+
+function closePreviewOnProjectionsModal() {
+  document.getElementById('preview-on-projections-modal').close();
+}
+
+function handlePreviewOnProjectionsSubmit(e) {
+  e.preventDefault();
+  const modal = document.getElementById('preview-on-projections-modal');
+  const waitlistId = modal.dataset.waitlistId;
+  const entry = entries.find(x => x.id === waitlistId);
+  if (!entry) {
+    alert('Could not find the waitlist entry.');
+    return;
+  }
+  const date = document.getElementById('preview-start-date').value;
+  const classroomId = document.getElementById('preview-classroom').value;
+  if (!date) {
+    alert('Please choose an effective start date.');
+    return;
+  }
+  const now = new Date().toISOString();
+  const childId = enrollUuid('child');
+  enrollChildren.push({
+    id: childId,
+    name: entry.childName,
+    dob: entry.childBirthday,
+    parentName: entry.parentName || '',
+    parentPhone: entry.phone || '',
+    parentEmail: entry.email || '',
+    notes: entry.notes || '',
+    status: 'enrolled',
+    currentClassroomId: classroomId,
+    createdAt: now,
+    preview: true,
+    previewWaitlistEntryId: entry.id
+  });
+  enrollMoves.push({
+    id: enrollUuid('move'),
+    childId,
+    type: 'new_start',
+    targetClassroomId: classroomId,
+    effectiveDate: date,
+    transitionWeek: null,
+    notes: 'Preview placement (not yet confirmed)',
+    createdAt: now,
+    approved: true,
+    preview: true
+  });
+  saveEnrollChildren();
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  closePreviewOnProjectionsModal();
+  // Switch the user to Projections so they can see the placement.
+  setMode('roster');
+}
+
+// Resolve preview → confirm. Strip the preview flag from the child + every one
+// of their move events. Mark the source waitlist entry as placed. Push undo so
+// Cmd+Z reverses it (treated as add_move on the original move event id).
+function confirmPreviewStart(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child || !child.preview) return;
+  const childName = child.name;
+  const waitlistEntryId = child.previewWaitlistEntryId;
+  // Capture the preview new_start move BEFORE we strip the preview flag, so we
+  // can build a nicely-worded audit-log message.
+  const primaryMove = enrollMoves.find(m =>
+    m.childId === childId && m.preview && m.type === 'new_start');
+  const room = primaryMove
+    ? CLASSROOMS.find(c => c.id === primaryMove.targetClassroomId)
+    : null;
+  const roomLabel = room ? room.name : 'classroom';
+  const startDate = primaryMove ? primaryMove.effectiveDate : null;
+  // Strip preview from child.
+  delete child.preview;
+  delete child.previewWaitlistEntryId;
+  // Strip preview from this child's move events.
+  let primaryMoveId = null;
+  for (const mv of enrollMoves) {
+    if (mv.childId === childId && mv.preview) {
+      delete mv.preview;
+      if (!primaryMoveId && mv.type === 'new_start') primaryMoveId = mv.id;
+    }
+  }
+  // Mark waitlist entry as placed.
+  const idx = entries.findIndex(e => e.id === waitlistEntryId);
+  if (idx !== -1) {
+    entries[idx].status = 'placed';
+    saveEntries();
+  }
+  saveEnrollChildren();
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  render();
+  // Push undo — treat as an add_move so reversing drops the now-confirmed move,
+  // which collapses the child back to "no events". (Best-effort — we don't try
+  // to also restore the preview state.)
+  if (primaryMoveId) {
+    const summary = `${childName} started (confirmed from preview).`;
+    pushUndoableAction(
+      { type: 'add_move', moveEventId: primaryMoveId, childName, summary },
+      summary
+    );
+  }
+  // Audit trail.
+  const today = todayIso();
+  const datePart = startDate && startDate > today ? ` on ${formatDate(startDate)}` : '';
+  logWaitlistHistory({
+    action: 'started',
+    entryId: waitlistEntryId,
+    childName,
+    summary: `${childName} started in ${roomLabel}${datePart} (confirmed from preview)`
+  });
+}
+
+// Resolve preview → back to waitlist. Delete the preview child + their preview
+// move events. The waitlist entry stays active. No history log (it's a cancel).
+function cancelPreviewBackToWaitlist(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child || !child.preview) return;
+  enrollMoves = enrollMoves.filter(m => !(m.childId === childId && m.preview));
+  enrollChildren = enrollChildren.filter(c => c.id !== childId);
+  saveEnrollChildren();
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  render();
+}
+
+// Resolve preview → remove from waitlist entirely. Deletes both the preview
+// child + move events AND the waitlist entry. Asks for confirmation first.
+function removePreviewAndWaitlistEntry(childId) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child || !child.preview) return;
+  const childName = child.name;
+  const waitlistEntryId = child.previewWaitlistEntryId;
+  if (!confirm(`Remove ${childName} from the waitlist entirely? This cancels the preview and deletes their waitlist entry.`)) {
+    return;
+  }
+  // Drop preview child + their preview moves.
+  enrollMoves = enrollMoves.filter(m => !(m.childId === childId && m.preview));
+  enrollChildren = enrollChildren.filter(c => c.id !== childId);
+  saveEnrollChildren();
+  saveEnrollMoves();
+  // Delete waitlist entry (deleteEntry already logs 'deleted').
+  if (waitlistEntryId) deleteEntry(waitlistEntryId);
+  refreshAllCachedClassrooms();
+  render();
+}
+
+// Render preview banners at the top of the Projections view. One stacked
+// banner per preview child, in chronological order of creation.
+function renderProjectionsPreviewBanners() {
+  const rosterView = document.getElementById('roster-view');
+  if (!rosterView) return;
+  // Drop any existing banner stack first so we render fresh.
+  const old = rosterView.querySelector('.projections-preview-banners');
+  if (old) old.remove();
+  const previews = enrollChildren.filter(c => c.preview);
+  if (previews.length === 0) return;
+  // Sort by createdAt for stable chronological ordering.
+  previews.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  const container = document.createElement('div');
+  container.className = 'projections-preview-banners';
+  container.innerHTML = previews.map(child => {
+    // Find the preview new_start move so we can show classroom + effective date.
+    const mv = enrollMoves.find(m => m.childId === child.id && m.preview && m.type === 'new_start');
+    const room = mv ? CLASSROOMS.find(c => c.id === mv.targetClassroomId) : null;
+    const roomLabel = room ? room.name : 'classroom';
+    const dateLabel = mv && mv.effectiveDate ? formatDate(mv.effectiveDate) : '—';
+    return `
+      <div class="projections-preview-banner" data-child-id="${escapeHtml(child.id)}">
+        <div class="projections-preview-banner-message">
+          <strong>[👁 PREVIEW]</strong>${escapeHtml(child.name)} — ${escapeHtml(roomLabel)} starting ${escapeHtml(dateLabel)}
+        </div>
+        <div class="projections-preview-banner-actions">
+          <button type="button" class="primary" data-preview-action="confirm" data-child-id="${escapeHtml(child.id)}">Confirm new start</button>
+          <button type="button" data-preview-action="cancel"  data-child-id="${escapeHtml(child.id)}">Back to waitlist</button>
+          <button type="button" class="danger" data-preview-action="remove" data-child-id="${escapeHtml(child.id)}">Remove from waitlist</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  // Insert above the roster-toolbar so the banner stack sits at the top of the view.
+  const toolbar = rosterView.querySelector('.roster-toolbar');
+  if (toolbar) rosterView.insertBefore(container, toolbar);
+  else rosterView.insertBefore(container, rosterView.firstChild);
+  // Wire actions.
+  container.querySelectorAll('[data-preview-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.previewAction;
+      const cid = btn.dataset.childId;
+      if (action === 'confirm') confirmPreviewStart(cid);
+      else if (action === 'cancel') cancelPreviewBackToWaitlist(cid);
+      else if (action === 'remove') removePreviewAndWaitlistEntry(cid);
+    });
+  });
+}
+
+// Inject the "View on projections" button next to "Start child" on each row.
+// Mirrors injectStartChildButtons(): runs only on the waitlist view, only on
+// active entries, idempotent (skips rows that already have the button).
+function injectViewOnProjectionsButtons() {
+  if (currentMode !== 'waitlist') return;
+  document.querySelectorAll('#classroom-sections .entry').forEach(row => {
+    if (row.querySelector('[data-action="view-on-projections"]')) return;
+    const actions = row.querySelector('.entry-actions');
+    if (!actions) return;
+    const editBtn = actions.querySelector('[data-action="edit"]');
+    if (!editBtn) return;
+    const id = editBtn.dataset.id;
+    if (!id) return;
+    const entry = entries.find(e => e.id === id);
+    if (!entry || (entry.status || 'active') !== 'active') return;
+    const btn = document.createElement('button');
+    btn.className = 'primary-soft';
+    btn.dataset.action = 'view-on-projections';
+    btn.dataset.id = id;
+    btn.title = 'Place this child on Projections as a preview to see capacity impact';
+    btn.textContent = 'View on projections';
+    // Insert before the existing "Start child" button so the row reads:
+    //   ... → View on projections → Start child → Offered.
+    const startBtn = actions.querySelector('[data-action="start-child"]');
+    if (startBtn) actions.insertBefore(btn, startBtn);
+    else {
+      const offerBtn = actions.querySelector('[data-action="offered"]');
+      if (offerBtn) actions.insertBefore(btn, offerBtn);
+      else actions.appendChild(btn);
+    }
+    btn.addEventListener('click', () => openPreviewOnProjectionsModal(id));
+  });
+}
+
+/* === Waitlist history modal === */
+// Short relative-time formatter. "just now", "5 minutes ago", "3 hours ago",
+// "2 days ago", "3 weeks ago". Falls back to a calendar date for old entries.
+function formatRelativeTime(iso) {
+  if (!iso) return '';
+  const then = new Date(iso);
+  if (isNaN(then)) return '';
+  const diffMs = Date.now() - then.getTime();
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 30)   return 'just now';
+  if (seconds < 60)   return `${seconds} seconds ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60)   return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24)     return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7)       return days === 1 ? '1 day ago' : `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5)      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12)    return months === 1 ? '1 month ago' : `${months} months ago`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? '1 year ago' : `${years} years ago`;
+}
+
+// Icon glyph for each history action. Keep these short — they sit in a 28px column.
+const WAITLIST_HISTORY_ICONS = {
+  added:     '+',
+  edited:    '✎',  // pencil
+  deleted:   '✕',  // ×
+  contacted: '☎',  // phone
+  toured:    '⌂',  // house
+  started:   '✓',  // check
+  returned:  '↩'   // hooked arrow left
+};
+
+function openWaitlistHistoryModal() {
+  renderWaitlistHistoryModalBody();
+  document.getElementById('waitlist-history-modal').showModal();
+}
+
+function closeWaitlistHistoryModal() {
+  document.getElementById('waitlist-history-modal').close();
+}
+
+function renderWaitlistHistoryModalBody() {
+  const body = document.getElementById('waitlist-history-body');
+  if (!body) return;
+  if (!waitlistHistory || waitlistHistory.length === 0) {
+    body.innerHTML = '<div class="waitlist-history-empty">No waitlist changes yet.</div>';
+    return;
+  }
+  // Reverse-chronological — newest first.
+  const rows = [...waitlistHistory].reverse();
+  body.innerHTML = rows.map(h => {
+    const icon = WAITLIST_HISTORY_ICONS[h.action] || '•';
+    const when = formatRelativeTime(h.timestamp);
+    return `
+      <div class="waitlist-history-row">
+        <div class="waitlist-history-time" title="${escapeHtml(h.timestamp || '')}">${escapeHtml(when)}</div>
+        <div class="waitlist-history-icon" aria-hidden="true">${escapeHtml(icon)}</div>
+        <div class="waitlist-history-summary">${escapeHtml(h.summary || h.action || '')}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* === Top-level render dispatcher (replaces the original) === */
@@ -5636,6 +6233,7 @@ render = function() {
       document.getElementById('main-view').style.display = '';
       originalRender();
       injectStartChildButtons();
+      injectViewOnProjectionsButtons();
     }
   }
   if (currentMode === 'children') renderChildrenView();
@@ -5657,7 +6255,9 @@ function updatePageHeader() {
     subtitle.textContent = `${enrolled} ${enrolled === 1 ? 'child' : 'children'} enrolled · 12-month view`;
   } else if (currentMode === 'children') {
     title.textContent = 'All Children';
-    subtitle.textContent = `${enrollChildren.length} total · ${enrollChildren.filter(c => c.status === 'enrolled').length} enrolled, ${enrollChildren.filter(c => c.status === 'withdrawn').length} withdrawn`;
+    // Preview placements aren't real enrollments yet — exclude them from these counts.
+    const real = enrollChildren.filter(c => !c.preview);
+    subtitle.textContent = `${real.length} total · ${real.filter(c => c.status === 'enrolled').length} enrolled, ${real.filter(c => c.status === 'withdrawn').length} withdrawn`;
   }
   // Otherwise (waitlist mode) the original updatePageTitleFor() handles it.
 }
@@ -5670,9 +6270,11 @@ function updateHeaderActions() {
   if (currentMode === 'waitlist') {
     actions.innerHTML = `
       <button id="export-csv-btn">Export CSV</button>
+      <button id="waitlist-history-btn">History</button>
       <button id="add-entry-btn" class="primary">+ Add to Waitlist</button>
     `;
     document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+    document.getElementById('waitlist-history-btn').addEventListener('click', openWaitlistHistoryModal);
     document.getElementById('add-entry-btn').addEventListener('click', openAddModal);
   } else if (currentMode === 'children') {
     actions.innerHTML = `
