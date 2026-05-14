@@ -1061,8 +1061,8 @@
      States are mutually exclusive; priority (when multiple could apply):
      disenrolling > new-start > arriving > departing. */
   .roster-child.is-departing {
-    background: rgba(236, 72, 153, 0.28);
-    border-left: 3px solid #db2777;
+    background: rgba(59, 130, 246, 0.28);
+    border-left: 3px solid #2563eb;
     padding-left: 7px;
   }
   .roster-child.is-arriving {
@@ -1071,8 +1071,8 @@
     padding-left: 7px;
   }
   .roster-child.is-disenrolling {
-    background: rgba(59, 130, 246, 0.28);
-    border-left: 3px solid #2563eb;
+    background: rgba(236, 72, 153, 0.28);
+    border-left: 3px solid #db2777;
     padding-left: 7px;
   }
   .roster-child.is-new-start {
@@ -1081,9 +1081,9 @@
     padding-left: 7px;
   }
   /* Keep hover affordance distinct even when color-coded. */
-  .roster-child.is-departing:hover    { background: rgba(236, 72, 153, 0.42);  border-color: #db2777; }
+  .roster-child.is-departing:hover    { background: rgba(59, 130, 246, 0.42);  border-color: #2563eb; }
   .roster-child.is-arriving:hover     { background: rgba(139, 92, 246, 0.20);  border-color: #8b5cf6; }
-  .roster-child.is-disenrolling:hover { background: rgba(59, 130, 246, 0.42);  border-color: #2563eb; }
+  .roster-child.is-disenrolling:hover { background: rgba(236, 72, 153, 0.42);  border-color: #db2777; }
   .roster-child.is-new-start:hover    { background: rgba(34, 197, 94, 0.45);   border-color: #16a34a; }
 
   /* === Roster legend (visual key for color-coded cells) === */
@@ -1109,8 +1109,8 @@
   }
   .roster-legend-dot.is-new-start    { background: #22c55e; }
   .roster-legend-dot.is-arriving     { background: #8b5cf6; }
-  .roster-legend-dot.is-departing    { background: #ec4899; }
-  .roster-legend-dot.is-disenrolling { background: #3b82f6; }
+  .roster-legend-dot.is-departing    { background: #3b82f6; }
+  .roster-legend-dot.is-disenrolling { background: #ec4899; }
 
   /* === Corner-cell color key === */
   /* Lives inside the top-left header cell of the roster grid so it scrolls
@@ -1132,8 +1132,8 @@
   }
   .roster-corner-key-item.is-new-start    { color: #16a34a; }
   .roster-corner-key-item.is-arriving     { color: #7c3aed; }
-  .roster-corner-key-item.is-departing    { color: #db2777; }
-  .roster-corner-key-item.is-disenrolling { color: #2563eb; }
+  .roster-corner-key-item.is-departing    { color: #2563eb; }
+  .roster-corner-key-item.is-disenrolling { color: #db2777; }
   /* Override the centered text-align inherited from .roster-cell.is-header. */
   .roster-cell.is-header.is-corner {
     text-align: left;
