@@ -2618,12 +2618,19 @@ let cellActionClickedMonth = null;
 let editingMoveId = null;
 // Which month the calendar modal is currently showing (ISO first-of-month).
 let calendarMonthIso = null;
-// Session-scoped undo state — holds the LAST destructive action (disenroll or
-// back-to-waitlist) so the user can one-click reverse it. Cleared when the
-// timer expires (~10s), when dismissed, or when undone.
-let lastUndoableAction = null;
+// Persisted undo stack — holds up to UNDO_STACK_MAX recent destructive actions
+// (move add/edit/delete, disenroll, back-to-waitlist) so the user can step
+// backwards through them. Saved to localStorage so closing/reopening the tab
+// doesn't lose history. The toast UI is independent of the stack: dismissing
+// the toast (auto or manual) leaves the stack intact so Cmd/Ctrl+Z still works.
+const UNDO_STACK_KEY = 'enrollment_undo_stack_v1';
+const UNDO_STACK_MAX = 25;
+const UNDO_TOAST_AUTO_MS = 10000;
+// Legacy alias kept so any stray reference doesn't break. The auto-dismiss is
+// driven by UNDO_TOAST_AUTO_MS now.
+const UNDO_TIMEOUT_MS = UNDO_TOAST_AUTO_MS;
+let undoStack = loadUndoStack(); // restored across page loads; capped at UNDO_STACK_MAX
 let undoToastTimerId = null;
-const UNDO_TIMEOUT_MS = 10000;
 
 /* === Storage === */
 function loadEntries() {
@@ -2655,6 +2662,19 @@ function loadEnrollMoves() {
 }
 function saveEnrollMoves() {
   try { storage.set(ENROLL_MOVES_KEY, JSON.stringify(enrollMoves)); } catch {}
+}
+// Persisted undo stack — JSON.stringify-safe action records. Each entry is
+// { type, description, ...payload } where the payload carries the data the
+// inverse executor needs (move ids, deep-copied snapshots, etc.). Anything
+// non-serializable (functions, DOM refs) MUST NOT be stored.
+function loadUndoStack() {
+  try {
+    const raw = JSON.parse(storage.get(UNDO_STACK_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch { return []; }
+}
+function saveUndoStack() {
+  try { storage.set(UNDO_STACK_KEY, JSON.stringify(undoStack)); } catch {}
 }
 function loadChildrenSort() {
   try { return JSON.parse(storage.get(ENROLL_CHILDREN_SORT_KEY) || '{}'); }
@@ -3665,9 +3685,29 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('schedule-move-save-btn').addEventListener('click', saveScheduleMove);
   document.getElementById('withdraw-btn').addEventListener('click', withdrawCurrentChild);
   document.getElementById('back-to-waitlist-btn').addEventListener('click', sendCurrentChildBackToWaitlist);
-  // Undo toast — Undo button reverses the last destructive action; close button dismisses.
+  // Undo toast — Undo button reverses the most recent action on the stack;
+  // close button just hides the toast (the stack stays so Cmd/Ctrl+Z keeps working).
   document.getElementById('undo-toast-btn').addEventListener('click', undoLastAction);
   document.getElementById('undo-toast-close').addEventListener('click', hideUndoToast);
+  // Global keyboard shortcut: Cmd+Z (Mac) / Ctrl+Z (Win/Linux) with no Shift / Alt
+  // and no focus inside an editable field (so we don't steal text-edit undo).
+  document.addEventListener('keydown', (e) => {
+    const key = e.key;
+    if (key !== 'z' && key !== 'Z') return;
+    const isMod = e.metaKey || e.ctrlKey;
+    if (!isMod) return;
+    if (e.shiftKey || e.altKey) return; // redo / other combos are out of scope
+    const target = e.target;
+    if (target) {
+      const tag = (target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (target.isContentEditable) return;
+    }
+    e.preventDefault();
+    undoLastAction();
+  });
+  // On first paint, surface the toast if there's a restored action waiting.
+  if (undoStack.length > 0) renderUndoToast();
   // Withdrawal type hides the classroom select since target is null.
   document.getElementById('schedule-move-type').addEventListener('change', e => {
     const isWithdrawal = e.target.value === 'withdrawal';
@@ -4556,8 +4596,9 @@ function applyCellActionMove(direction, effectiveDate, transitionWeek) {
   if (direction === -1 && currentRoomId === 'infant_a') return;
   if (direction ===  1 && currentRoomId === 'prek')     return;
 
+  const moveEventId = enrollUuid('move');
   enrollMoves.push({
-    id: enrollUuid('move'),
+    id: moveEventId,
     childId: child.id,
     type: 'transition',
     targetClassroomId: targetRoom.id,
@@ -4572,6 +4613,17 @@ function applyCellActionMove(direction, effectiveDate, transitionWeek) {
   closeCellActionPopover();
   // Re-render — cell color coding will update automatically.
   render();
+  // Push to the undo stack. Summary mirrors the new event so the toast reads
+  // naturally — "Jane Doe moved to Toddlers on May 1, 2026."
+  const today = todayIso();
+  const dateLabel = effectiveDate && effectiveDate > today
+    ? ` on ${formatDate(effectiveDate)}`
+    : '';
+  const summary = `${child.name} moved to ${targetRoom.name}${dateLabel}.`;
+  pushUndoableAction(
+    { type: 'add_move', moveEventId, childName: child.name, summary },
+    summary
+  );
 }
 
 /* === Children directory === */
@@ -4781,11 +4833,31 @@ function renderChildHistory(childId) {
     btn.addEventListener('click', () => {
       if (!confirm('Delete this move event? The child\'s history will be recomputed.')) return;
       const moveId = btn.dataset.moveDeleteId;
+      // Capture a deep copy BEFORE we drop it, so undo can re-insert it.
+      const deletedMove = enrollMoves.find(m => m.id === moveId);
+      const snapshot = deletedMove ? JSON.parse(JSON.stringify(deletedMove)) : null;
       enrollMoves = enrollMoves.filter(m => m.id !== moveId);
       saveEnrollMoves();
       refreshAllCachedClassrooms();
       renderChildHistory(childId);
       renderModeNav();
+      if (snapshot) {
+        const child = enrollChildren.find(c => c.id === childId);
+        const childName = child ? child.name : 'Child';
+        const room = snapshot.targetClassroomId
+          ? CLASSROOMS.find(c => c.id === snapshot.targetClassroomId)
+          : null;
+        const typeWord = snapshot.type === 'withdrawal'
+          ? 'withdrawal'
+          : (snapshot.type === 'new_start' ? 'start' : 'transition');
+        const dateLabel = snapshot.effectiveDate ? formatDate(snapshot.effectiveDate) : 'unknown date';
+        const roomPart = room ? ` to ${room.name}` : '';
+        const description = `Deleted ${childName}'s ${typeWord}${roomPart} (${dateLabel}).`;
+        pushUndoableAction(
+          { type: 'delete_move', deletedMove: snapshot, childName },
+          description
+        );
+      }
     });
   });
 }
@@ -4893,6 +4965,14 @@ function saveScheduleMove() {
     return;
   }
 
+  // Resolve the child's display name once for nicer undo descriptions.
+  const childForLabel = enrollChildren.find(c => c.id === editingChildId);
+  const childName = childForLabel ? childForLabel.name : 'Child';
+
+  // The action we'll push at the end (set inside whichever branch applies).
+  let undoAction = null;
+  let undoDescription = '';
+
   if (editingMoveId) {
     // EDIT mode — update the existing event in place. Keep its id and createdAt;
     // refresh the other fields.
@@ -4902,6 +4982,9 @@ function saveScheduleMove() {
       editingMoveId = null;
       return;
     }
+    // Snapshot the BEFORE state so undo can restore it. Deep copy via JSON
+    // round-trip keeps the snapshot JSON-safe and isolated from later mutation.
+    const beforeMove = JSON.parse(JSON.stringify(enrollMoves[idx]));
     enrollMoves[idx] = {
       ...enrollMoves[idx],
       type,
@@ -4910,10 +4993,25 @@ function saveScheduleMove() {
       transitionWeek: week || null,
       notes
     };
+    const afterRoom = type === 'withdrawal'
+      ? null
+      : CLASSROOMS.find(c => c.id === classroomId);
+    const afterSummary = type === 'withdrawal'
+      ? `withdrawal on ${formatDate(date)}`
+      : `${afterRoom ? afterRoom.name : 'classroom'} on ${formatDate(date)}`;
+    undoAction = {
+      type: 'edit_move',
+      moveEventId: editingMoveId,
+      beforeMove,
+      afterSummary,
+      childName
+    };
+    undoDescription = `${childName}'s move updated.`;
   } else {
     // CREATE mode — push a fresh event.
+    const moveEventId = enrollUuid('move');
     enrollMoves.push({
-      id: enrollUuid('move'),
+      id: moveEventId,
       childId: editingChildId,
       type,
       targetClassroomId: type === 'withdrawal' ? null : classroomId,
@@ -4923,6 +5021,23 @@ function saveScheduleMove() {
       createdAt: new Date().toISOString(),
       approved: true
     });
+    let summary;
+    if (type === 'withdrawal') {
+      summary = `${childName} scheduled to withdraw on ${formatDate(date)}.`;
+    } else {
+      const room = CLASSROOMS.find(c => c.id === classroomId);
+      const roomLabel = room ? room.name : 'classroom';
+      const today = todayIso();
+      const datePart = date > today ? ` on ${formatDate(date)}` : '';
+      summary = `${childName} moved to ${roomLabel}${datePart}.`;
+    }
+    undoAction = {
+      type: 'add_move',
+      moveEventId,
+      childName,
+      summary
+    };
+    undoDescription = summary;
   }
   saveEnrollMoves();
   refreshAllCachedClassrooms();
@@ -4938,6 +5053,7 @@ function saveScheduleMove() {
   document.getElementById('schedule-move-form').style.display = 'none';
   renderChildHistory(editingChildId);
   renderModeNav();
+  if (undoAction) pushUndoableAction(undoAction, undoDescription);
 }
 
 function withdrawCurrentChild() {
@@ -5008,7 +5124,7 @@ function sendCurrentChildBackToWaitlist() {
   refreshAllCachedClassrooms();
   closeChildModal();
   render();
-  showUndoToast(
+  pushUndoableAction(
     { type: 'back_to_waitlist', childId: child.id, moveEventId, waitlistEntryId: newEntry.id, childName: child.name },
     `${child.name} moved back to the waitlist.`
   );
@@ -5092,65 +5208,142 @@ function handleWithdrawalSubmit(e) {
   const message = date <= today
     ? `${childName} withdrawn.`
     : `${childName} scheduled to withdraw on ${formatDate(date)}.`;
-  showUndoToast(
+  pushUndoableAction(
     { type: 'disenroll', childId, moveEventId, childName },
     message
   );
 }
 
-/* === Undo toast ============================================================
-   Shown after a destructive action (disenroll / back-to-waitlist). The user
-   can hit Undo within ~10 seconds to reverse the change. Undo reverses by
-   removing the new move event (and the new waitlist entry, in the back-to-
-   waitlist case), then letting refreshAllCachedClassrooms() recompute the
-   child's classroom + status from the remaining move events.
+/* === Undo stack & toast ====================================================
+   Up to UNDO_STACK_MAX recent destructive actions are kept on a persisted
+   stack (survives reloads). The toast is just a transient surface — it
+   auto-dismisses after UNDO_TOAST_AUTO_MS but the stack stays intact, so
+   Cmd/Ctrl+Z can keep reversing actions even after the toast has gone.
+
+   Action types and their inverses:
+     disenroll          — remove the withdrawal move; restore status=enrolled
+     back_to_waitlist   — same as disenroll, plus remove the new waitlist entry
+     add_move           — remove the move by id
+     edit_move          — replace the move with its pre-edit deep-copy snapshot
+     delete_move        — re-push the deleted move object
    ========================================================================= */
-function showUndoToast(action, message) {
-  lastUndoableAction = action;
-  const toast = document.getElementById('undo-toast');
-  if (!toast) return;
-  document.getElementById('undo-toast-message').textContent = message;
-  toast.classList.add('is-visible');
-  if (undoToastTimerId) clearTimeout(undoToastTimerId);
-  undoToastTimerId = setTimeout(hideUndoToast, UNDO_TIMEOUT_MS);
+
+// Returns the description for the topmost action, used as the toast message.
+// When more than one action is stacked, append a faint "(N undoable)" hint.
+function formatUndoMessage(action) {
+  if (!action) return '';
+  const desc = action.description || 'Action undone.';
+  if (undoStack.length > 1) return `${desc} (${undoStack.length} undoable)`;
+  return desc;
 }
 
+// Push a new action onto the stack and refresh the toast UI. Capped at
+// UNDO_STACK_MAX — the oldest entry is dropped when the cap is exceeded.
+function pushUndoableAction(action, description) {
+  if (!action || !action.type) return;
+  action.description = description || '';
+  undoStack.push(action);
+  // Cap the stack — drop oldest if we're over.
+  while (undoStack.length > UNDO_STACK_MAX) undoStack.shift();
+  saveUndoStack();
+  renderUndoToast();
+}
+
+// Render / re-render the toast based on the top of the stack. Resets the
+// auto-dismiss timer each time so the most recent action is fully visible.
+function renderUndoToast() {
+  const toast = document.getElementById('undo-toast');
+  if (!toast) return;
+  if (undoStack.length === 0) {
+    toast.classList.remove('is-visible');
+    if (undoToastTimerId) { clearTimeout(undoToastTimerId); undoToastTimerId = null; }
+    return;
+  }
+  const top = undoStack[undoStack.length - 1];
+  const msgEl = document.getElementById('undo-toast-message');
+  if (msgEl) msgEl.textContent = formatUndoMessage(top);
+  toast.classList.add('is-visible');
+  if (undoToastTimerId) clearTimeout(undoToastTimerId);
+  undoToastTimerId = setTimeout(hideUndoToast, UNDO_TOAST_AUTO_MS);
+}
+
+// Dismiss the toast UI but DO NOT touch the stack. Keyboard undo still works.
 function hideUndoToast() {
   if (undoToastTimerId) clearTimeout(undoToastTimerId);
   undoToastTimerId = null;
-  lastUndoableAction = null;
   const toast = document.getElementById('undo-toast');
   if (toast) toast.classList.remove('is-visible');
 }
 
-function undoLastAction() {
-  if (!lastUndoableAction) return;
-  const action = lastUndoableAction;
-  // Hide immediately so the user has feedback even if the work below takes a tick.
-  hideUndoToast();
-
-  if (action.type !== 'disenroll' && action.type !== 'back_to_waitlist') return;
-
-  // 1. Remove the withdrawal move event.
-  if (action.moveEventId) {
-    const idx = enrollMoves.findIndex(m => m.id === action.moveEventId);
-    if (idx !== -1) enrollMoves.splice(idx, 1);
-    saveEnrollMoves();
+// Central dispatcher: applies the inverse of a single action. Touches storage
+// and triggers a re-render. Safe to call on actions restored from disk —
+// each action carries enough payload to reverse itself without further lookup.
+function executeUndoForAction(action) {
+  if (!action || !action.type) return;
+  switch (action.type) {
+    case 'disenroll':
+    case 'back_to_waitlist': {
+      // 1. Remove the withdrawal move event.
+      if (action.moveEventId) {
+        const idx = enrollMoves.findIndex(m => m.id === action.moveEventId);
+        if (idx !== -1) enrollMoves.splice(idx, 1);
+      }
+      // 2. For back-to-waitlist, also remove the new waitlist entry.
+      if (action.type === 'back_to_waitlist' && action.waitlistEntryId) {
+        const eidx = entries.findIndex(e => e.id === action.waitlistEntryId);
+        if (eidx !== -1) entries.splice(eidx, 1);
+      }
+      // 3. Restore status so refreshAllCachedClassrooms recomputes from events.
+      const child = enrollChildren.find(c => c.id === action.childId);
+      if (child) child.status = 'enrolled';
+      break;
+    }
+    case 'add_move': {
+      // Reverse a push: drop the event by id.
+      if (action.moveEventId) {
+        enrollMoves = enrollMoves.filter(m => m.id !== action.moveEventId);
+      }
+      break;
+    }
+    case 'edit_move': {
+      // Reverse an in-place edit: replace the event with its pre-edit snapshot.
+      if (action.moveEventId && action.beforeMove) {
+        const idx = enrollMoves.findIndex(m => m.id === action.moveEventId);
+        if (idx !== -1) enrollMoves[idx] = action.beforeMove;
+        else enrollMoves.push(action.beforeMove); // event was deleted in the meantime — re-add it
+      }
+      break;
+    }
+    case 'delete_move': {
+      // Reverse a delete: push the saved snapshot back.
+      if (action.deletedMove) enrollMoves.push(action.deletedMove);
+      break;
+    }
+    default:
+      // Unknown action type — leave state alone.
+      return;
   }
-  // 2. Remove the new waitlist entry (back-to-waitlist only).
-  if (action.type === 'back_to_waitlist' && action.waitlistEntryId) {
-    const idx = entries.findIndex(e => e.id === action.waitlistEntryId);
-    if (idx !== -1) entries.splice(idx, 1);
-    saveEntries();
-  }
-  // 3. Reset the child's status so refreshAllCachedClassrooms recomputes from events.
-  const child = enrollChildren.find(c => c.id === action.childId);
-  if (child) {
-    child.status = 'enrolled';
-    saveEnrollChildren();
-  }
+  saveEnrollMoves();
+  saveEnrollChildren();
+  saveEntries();
   refreshAllCachedClassrooms();
   render();
+}
+
+// Pop and execute the top action. If more actions remain, the toast re-appears
+// for the new top so the user can chain undo clicks.
+function undoLastAction() {
+  if (undoStack.length === 0) {
+    hideUndoToast();
+    return;
+  }
+  const action = undoStack.pop();
+  saveUndoStack();
+  // Hide immediately so the user gets feedback while the work below runs.
+  hideUndoToast();
+  executeUndoForAction(action);
+  // If more actions remain, surface the next one in the toast.
+  if (undoStack.length > 0) renderUndoToast();
 }
 
 /* === Start-from-waitlist modal === */
@@ -5212,8 +5405,9 @@ function handleStartChildSubmit(e) {
     originalWaitlistEntryId: entry.id,
     originalWaitlistAddedDate: entry.dateAdded || entry.createdAt || null
   });
+  const moveEventId = enrollUuid('move');
   enrollMoves.push({
-    id: enrollUuid('move'),
+    id: moveEventId,
     childId,
     type: 'new_start',
     targetClassroomId: classroomId,
@@ -5234,6 +5428,17 @@ function handleStartChildSubmit(e) {
   refreshAllCachedClassrooms();
   closeStartChildModal();
   render();
+  // Push undo for the new start move. Treated as add_move — the inverse drops
+  // the move event, which collapses the child back to "no events" / no classroom.
+  const room = CLASSROOMS.find(c => c.id === classroomId);
+  const roomLabel = room ? room.name : 'classroom';
+  const today = todayIso();
+  const datePart = date > today ? ` on ${formatDate(date)}` : '';
+  const summary = `${entry.childName} started in ${roomLabel}${datePart}.`;
+  pushUndoableAction(
+    { type: 'add_move', moveEventId, childName: entry.childName, summary },
+    summary
+  );
 }
 
 /* === Top-level render dispatcher (replaces the original) === */
