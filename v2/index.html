@@ -1112,6 +1112,35 @@
   .roster-legend-dot.is-departing    { background: #ec4899; }
   .roster-legend-dot.is-disenrolling { background: #3b82f6; }
 
+  /* === Corner-cell color key === */
+  /* Lives inside the top-left header cell of the roster grid so it scrolls
+     horizontally with the date row but stays sticky as you scroll vertically. */
+  .roster-corner-label {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .roster-corner-key {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+    align-items: flex-start;
+  }
+  .roster-corner-key-item.is-new-start    { color: #16a34a; }
+  .roster-corner-key-item.is-arriving     { color: #7c3aed; }
+  .roster-corner-key-item.is-departing    { color: #db2777; }
+  .roster-corner-key-item.is-disenrolling { color: #2563eb; }
+  /* Override the centered text-align inherited from .roster-cell.is-header. */
+  .roster-cell.is-header.is-corner {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 12px;
+  }
+
   /* === Waitlist "ready to start" highlight === */
   .entry.is-ready-to-start { box-shadow: inset 3px 0 0 #2d7a3d; }
   .ready-badge {
@@ -1614,12 +1643,7 @@
       <button id="roster-next-btn" type="button" title="Shift window forward 3 months">3 mo &raquo;</button>
       <span class="roster-note">Click a child to move them between rooms. Counts go amber at capacity, red over.</span>
     </div>
-    <div class="roster-legend" aria-label="Color key">
-      <span class="roster-legend-item"><span class="roster-legend-dot is-new-start"></span>New start (this month)</span>
-      <span class="roster-legend-item"><span class="roster-legend-dot is-arriving"></span>Transitioning in (this month)</span>
-      <span class="roster-legend-item"><span class="roster-legend-dot is-departing"></span>Transitioning out (next month)</span>
-      <span class="roster-legend-item"><span class="roster-legend-dot is-disenrolling"></span>Disenrolling (this month)</span>
-    </div>
+<!-- Color key now lives inside the roster grid's corner cell (see renderRosterView) -->
     <div class="roster-scroll">
       <div id="roster-grid" class="roster-grid"></div>
     </div>
@@ -3937,7 +3961,20 @@ function renderRosterView() {
   });
 
   // Header row: corner + month labels with total enrollment underneath.
-  html += `<div class="roster-cell is-header is-corner">Classroom</div>`;
+  // The corner cell doubles as the legend — each label is colored to match
+  // its state, so the key scrolls horizontally with the date row but stays
+  // sticky as the admin scrolls vertically through classroom rows.
+  html += `
+    <div class="roster-cell is-header is-corner">
+      <div class="roster-corner-label">Classroom</div>
+      <div class="roster-corner-key" aria-label="Color key">
+        <div class="roster-corner-key-item is-new-start">New start</div>
+        <div class="roster-corner-key-item is-arriving">Transitioning in</div>
+        <div class="roster-corner-key-item is-departing">Transitioning out</div>
+        <div class="roster-corner-key-item is-disenrolling">Disenrolling</div>
+      </div>
+    </div>
+  `;
   for (let i = 0; i < months.length; i++) {
     const m = months[i];
     const isToday = m === thisMonthIso;
