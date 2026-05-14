@@ -1135,6 +1135,22 @@
     font-style: italic;
     font-size: 11px;
   }
+  /* Drag-and-drop styles */
+  .roster-child[draggable="true"] {
+    cursor: grab;
+  }
+  .roster-child[draggable="true"]:active {
+    cursor: grabbing;
+  }
+  .roster-child.is-dragging {
+    opacity: 0.4;
+  }
+  .roster-cell.is-drag-over {
+    background: var(--accent-soft);
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+  }
+
   /* Placeholder for an unfilled seat — visualizes available capacity in each
      classroom for each month. Same height as a roster-child so the column
      stays evenly laid out, but visually distinct (dashed, muted). */
@@ -4346,14 +4362,17 @@ function renderRosterView() {
       else if (count === classroom.capacity) countCls = 'is-at-capacity';
 
       // Render each enrolled child as a roster-child button, with per-cell state.
+      // draggable="true" enables HTML5 drag-and-drop so the admin can drag a child
+      // onto a different classroom × month cell to schedule a transition.
       const childrenHtml = roster.map(child => {
         const ageMonths = diffMonths(child.dob, monthEnd);
         const ageStr = ageMonths !== null ? formatAge(ageMonths) : 'age ?';
         const state = computeRosterChildState(child, classroom.id, monthStart, monthEnd);
         const stateCls = state ? ('is-' + state) : '';
         return `
-          <button class="roster-child ${stateCls}" data-child-id="${child.id}" data-month="${m}" type="button"
-                  title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}">
+          <button class="roster-child ${stateCls}" data-child-id="${child.id}" data-month="${m}"
+                  draggable="true" type="button"
+                  title="${escapeHtml(child.name)} — ${escapeHtml(ageStr)} on ${escapeHtml(monthLabel(m))}. Drag to a different classroom/month to schedule a transition.">
             <span class="roster-child-name">${escapeHtml(child.name)}</span>
             <span class="roster-child-age">${escapeHtml(ageStr)}</span>
           </button>
@@ -4369,8 +4388,9 @@ function renderRosterView() {
           .join('');
 
       const kidsHtml = childrenHtml + placeholdersHtml;
+      // data-classroom + data-month on the cell make it a valid drop target.
       html += `
-        <div class="roster-cell">
+        <div class="roster-cell is-drop-target-cell" data-classroom="${classroom.id}" data-month="${m}">
           ${kidsHtml}
           <div class="roster-count ${countCls}">${count} / ${classroom.capacity}</div>
         </div>
@@ -4384,11 +4404,110 @@ function renderRosterView() {
   // month so Move Back / Move Forward act relative to the clicked cell, not today.
   grid.querySelectorAll('[data-child-id]').forEach(btn => {
     btn.addEventListener('click', () => openCellActionPopover(btn.dataset.childId, btn.dataset.month));
+    // Drag source — the child cell.
+    btn.addEventListener('dragstart', handleRosterDragStart);
+    btn.addEventListener('dragend',   handleRosterDragEnd);
   });
   // Wire month-header cells → open the month calendar modal.
   grid.querySelectorAll('[data-cal-month]').forEach(cell => {
     cell.addEventListener('click', () => openMonthCalendar(cell.dataset.calMonth));
   });
+  // Drop targets — every (classroom × month) cell.
+  grid.querySelectorAll('.is-drop-target-cell').forEach(cell => {
+    cell.addEventListener('dragover',  handleRosterDragOver);
+    cell.addEventListener('dragleave', handleRosterDragLeave);
+    cell.addEventListener('drop',      handleRosterDrop);
+  });
+}
+
+/* === Drag-and-drop ========================================================
+   Drag a child from any (classroom × month) cell on the Projections grid and
+   drop on a different cell to schedule a transition. The effective date of
+   the resulting move event = first of the target column's month. Source data
+   is carried via dataTransfer so we know exactly which child + origin we're
+   moving. Pushes onto the undo stack so Cmd+Z reverses the drop.
+   ========================================================================= */
+
+function handleRosterDragStart(e) {
+  const btn = e.currentTarget;
+  const childId = btn.dataset.childId;
+  const sourceMonth = btn.dataset.month;
+  if (!childId || !sourceMonth) {
+    e.preventDefault();
+    return;
+  }
+  // Stash drag payload so the drop handler can read it cross-element.
+  e.dataTransfer.setData('text/plain', JSON.stringify({ childId, sourceMonth }));
+  e.dataTransfer.effectAllowed = 'move';
+  btn.classList.add('is-dragging');
+}
+
+function handleRosterDragEnd(e) {
+  e.currentTarget.classList.remove('is-dragging');
+  // Clear any lingering drop-over highlights (defensive — dragleave should handle it).
+  document.querySelectorAll('.roster-cell.is-drag-over').forEach(c => c.classList.remove('is-drag-over'));
+}
+
+function handleRosterDragOver(e) {
+  // Must preventDefault to allow the drop. effectAllowed='move' was set in dragstart.
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('is-drag-over');
+}
+
+function handleRosterDragLeave(e) {
+  e.currentTarget.classList.remove('is-drag-over');
+}
+
+function handleRosterDrop(e) {
+  e.preventDefault();
+  const cell = e.currentTarget;
+  cell.classList.remove('is-drag-over');
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain') || '{}'); }
+  catch { return; }
+  const { childId, sourceMonth } = payload;
+  const targetClassroomId = cell.dataset.classroom;
+  const targetMonthIso = cell.dataset.month;
+  if (!childId || !targetClassroomId || !targetMonthIso) return;
+  // No-op if dropped on the exact same cell (same classroom + same month).
+  // We compare the child's resolved classroom in the source month vs target.
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return;
+  const sourceClassroomId = getClassroomForChildOnDate(child, lastDayOfMonth(sourceMonth));
+  if (sourceClassroomId === targetClassroomId && sourceMonth === targetMonthIso) return;
+  applyDragMove(childId, targetClassroomId, targetMonthIso);
+}
+
+// Create a transition event for the dropped child. Unlike applyCellActionMove
+// (which only handles adjacent rooms), this supports ANY classroom-to-classroom
+// jump — the grid lets users drop into any classroom row.
+function applyDragMove(childId, targetClassroomId, targetMonthIso) {
+  const child = enrollChildren.find(c => c.id === childId);
+  if (!child) return;
+  const targetRoom = CLASSROOMS.find(c => c.id === targetClassroomId);
+  if (!targetRoom) return;
+  // Effective date = first of the target column's month.
+  const effectiveDate = targetMonthIso;
+  const moveEventId = enrollUuid('move');
+  enrollMoves.push({
+    id: moveEventId,
+    childId,
+    type: 'transition',
+    targetClassroomId,
+    effectiveDate,
+    transitionWeek: null,
+    notes: 'Dragged on Projections grid',
+    createdAt: new Date().toISOString(),
+    approved: true
+  });
+  saveEnrollMoves();
+  refreshAllCachedClassrooms();
+  pushUndoableAction(
+    { type: 'add_move', moveEventId, childName: child.name },
+    `${child.name} moved to ${targetRoom.name}`
+  );
+  render();
 }
 
 /* === Cell-action popover (click child in Roster → move forward / back) === */
