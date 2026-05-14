@@ -2292,6 +2292,56 @@ function seedIfNeeded() {
   }
 }
 
+// One-time migration: collapse all pre-May-2026 history into a clean
+// May 1, 2026 baseline. For each child:
+//   - Compute their classroom as of 2026-04-30 (right before the cutoff)
+//   - Delete all move events with effectiveDate < 2026-05-01
+//   - If they were enrolled at end of April, insert a fresh new_start event
+//     on 2026-05-01 → their April classroom
+//   - If they were already withdrawn (no classroom), leave them with no events
+// Uses a flag in localStorage so it only runs once per browser.
+const MIGRATE_PRE_MAY_2026_KEY = 'enrollment_migrate_pre_may_2026_v1';
+const PRE_MAY_2026_CUTOFF = '2026-05-01';
+
+function cleanupPreMay2026History() {
+  if (storage.get(MIGRATE_PRE_MAY_2026_KEY)) return;
+  const nowIso = new Date().toISOString();
+  const cutoff = PRE_MAY_2026_CUTOFF;
+  const referenceDate = '2026-04-30'; // last day before cutoff
+
+  let movesChanged = false;
+  // For each child, capture their pre-cutoff classroom before we delete history.
+  const baselineClassroomByChild = {};
+  for (const child of enrollChildren) {
+    baselineClassroomByChild[child.id] = getClassroomForChildOnDate(child, referenceDate);
+  }
+  // Drop every pre-cutoff event.
+  const filtered = enrollMoves.filter(m => m.effectiveDate >= cutoff);
+  if (filtered.length !== enrollMoves.length) {
+    enrollMoves = filtered;
+    movesChanged = true;
+  }
+  // For each child who was enrolled at end of April, insert a fresh new_start.
+  for (const child of enrollChildren) {
+    const classroom = baselineClassroomByChild[child.id];
+    if (!classroom) continue;
+    enrollMoves.push({
+      id: enrollUuid('move'),
+      childId: child.id,
+      type: 'new_start',
+      targetClassroomId: classroom,
+      effectiveDate: cutoff,
+      transitionWeek: null,
+      notes: 'Baseline reset (pre-May 2026 history cleared)',
+      createdAt: nowIso,
+      approved: true
+    });
+    movesChanged = true;
+  }
+  if (movesChanged) saveEnrollMoves();
+  storage.set(MIGRATE_PRE_MAY_2026_KEY, '1');
+}
+
 // First-run seed of enrolled children + their pre-scheduled move events.
 // Runs only when ENROLL_SEEDED_KEY is absent. After this, the flag is set so we
 // never re-seed (avoids clobbering admin edits on subsequent loads).
@@ -3640,6 +3690,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   seedIfNeeded();
   seedEnrollmentIfNeeded();
+  // One-time data cleanup: collapse any pre-May 2026 history into a single
+  // baseline new_start event on 2026-05-01 for each child, so the projection
+  // grid starts clean from that date.
+  cleanupPreMay2026History();
   // Refresh cached classrooms — handles existing data from prior loads where
   // transitions may have happened in the meantime.
   refreshAllCachedClassrooms();
